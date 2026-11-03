@@ -4,6 +4,7 @@ import { FormChart } from "@/components/form-chart";
 import { HealthTrends } from "@/components/health-trends";
 import type { Scale } from "@/lib/metrics/trend";
 import { ownerToday } from "@/lib/today";
+import { RunningTrends } from "@/modules/running/trends";
 import { periodStart, pickPeriod, PERIODS } from "@/lib/activities/list";
 import { weeklyLoad, type LoadedActivity } from "@/lib/load/weekly";
 import { dailyLoads, formCurve } from "@/lib/metrics/form";
@@ -149,6 +150,8 @@ export default async function TendenciasPage({ searchParams }: { searchParams: P
         </section>
       ) : null}
       <HealthTrends metricKey={params.metrica ?? "sleep"} scale={scale} from={from} href={href} />
+
+      <RunningTrends from={from} today={today} />
     </div>
   );
 }
