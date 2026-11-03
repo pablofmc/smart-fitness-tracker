@@ -1,0 +1,141 @@
+@import "tailwindcss";
+
+/*
+ * Coach tokens, from the C2 screens of the design canvas (R-UI-04, R-UI-06).
+ * The dark values appear twice on purpose: once for "Sistema" on a dark device, once for "Oscuro".
+ */
+:root {
+  color-scheme: light;
+  --bg: #f2f4f3;
+  --card: #ffffff;
+  --sunk: #f2f4f3;
+  --field: #e3e7e6;
+  --ink: #15201e;
+  --muted: #4b5a57;
+  --ink-soft: #2e3b38;
+  --line: #c9d2d0;
+  --primary: #0f766e;
+  --on-primary: #ffffff;
+  --accent: #0b5a54;
+  --nav: #ffffff;
+  --nav-line: #e3e7e6;
+  --nav-on: #ccede8;
+  --on-nav-on: #0b5a54;
+  --hero: #0f766e;
+  --on-hero: #ffffff;
+  --warn-bg: #fdebdd;
+  --warn: #9a3412;
+  --warn-line: #c2410c;
+  --warn-text: #7c2d12;
+  --warn-btn: #c2410c;
+  --on-warn-btn: #ffffff;
+  --amber-bg: #fef3c7;
+  --amber-title: #92400e;
+  --amber-text: #78350f;
+  --amber-btn: #92400e;
+  --on-amber-btn: #ffffff;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0d1412;
+    --card: #17201e;
+    --sunk: #1f2a27;
+    --field: #26322f;
+    --ink: #e6eeec;
+    --muted: #a3b4b0;
+    --ink-soft: #c9d6d3;
+    --line: #3a4744;
+    --primary: #2dd4bf;
+    --on-primary: #042f2c;
+    --accent: #5eead4;
+    --nav: #121b19;
+    --nav-line: #1f2a27;
+    --nav-on: #134e4a;
+    --on-nav-on: #99f6e4;
+    --hero: #134e4a;
+    --on-hero: #5eead4;
+    --warn-bg: #2a1e10;
+    --warn: #fdba74;
+    --warn-line: #fbbf24;
+    --warn-text: #fbe3d3;
+    --warn-btn: #fb923c;
+    --on-warn-btn: #2a1206;
+    --amber-bg: #2a1e10;
+    --amber-title: #fcd34d;
+    --amber-text: #fbebd9;
+    --amber-btn: #fbbf24;
+    --on-amber-btn: #2a1e10;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0d1412;
+  --card: #17201e;
+  --sunk: #1f2a27;
+  --field: #26322f;
+  --ink: #e6eeec;
+  --muted: #a3b4b0;
+  --ink-soft: #c9d6d3;
+  --line: #3a4744;
+  --primary: #2dd4bf;
+  --on-primary: #042f2c;
+  --accent: #5eead4;
+  --nav: #121b19;
+  --nav-line: #1f2a27;
+  --nav-on: #134e4a;
+  --on-nav-on: #99f6e4;
+  --hero: #134e4a;
+  --on-hero: #5eead4;
+  --warn-bg: #2a1e10;
+  --warn: #fdba74;
+  --warn-line: #fbbf24;
+  --warn-text: #fbe3d3;
+  --warn-btn: #fb923c;
+  --on-warn-btn: #2a1206;
+  --amber-bg: #2a1e10;
+  --amber-title: #fcd34d;
+  --amber-text: #fbebd9;
+  --amber-btn: #fbbf24;
+  --on-amber-btn: #2a1e10;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-card: var(--card);
+  --color-sunk: var(--sunk);
+  --color-field: var(--field);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-ink-soft: var(--ink-soft);
+  --color-line: var(--line);
+  --color-primary: var(--primary);
+  --color-on-primary: var(--on-primary);
+  --color-accent: var(--accent);
+  --color-nav: var(--nav);
+  --color-nav-line: var(--nav-line);
+  --color-nav-on: var(--nav-on);
+  --color-on-nav-on: var(--on-nav-on);
+  --color-hero: var(--hero);
+  --color-on-hero: var(--on-hero);
+  --color-warn-bg: var(--warn-bg);
+  --color-warn: var(--warn);
+  --color-warn-line: var(--warn-line);
+  --color-warn-text: var(--warn-text);
+  --color-warn-btn: var(--warn-btn);
+  --color-on-warn-btn: var(--on-warn-btn);
+  --color-amber-bg: var(--amber-bg);
+  --color-amber-title: var(--amber-title);
+  --color-amber-text: var(--amber-text);
+  --color-amber-btn: var(--amber-btn);
+  --color-on-amber-btn: var(--on-amber-btn);
+
+  --font-sans: var(--font-manrope), ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  background: var(--bg);
+  color: var(--ink);
+}
