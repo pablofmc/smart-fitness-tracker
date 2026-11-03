@@ -1,0 +1,55 @@
+# Garmin Connect API: verified facts
+
+What we know about the Garmin Connect API **Personal tier**, with where each fact came from. Update this file whenever you check something against Garmin's own docs. Secondary sources (blogs, forums) are marked as such and need confirming against Garmin before code depends on them.
+
+Status legend: ✅ confirmed in Garmin docs · 🟡 secondary source, unconfirmed · ❓ unknown
+
+| Fact | Status | Source (checked 2026-10-28) |
+|---|---|---|
+| Program reopened 2026-10-27 with Personal / Startup / Enterprise tiers. Personal is free and for one person's own data. | 🟡 | [DC Rainmaker](https://www.dcrainmaker.com/2026/10/garmin-connect-api-revamps-connect-developer.html) |
+| Personal tier is **read-only**: no pushing workouts or courses to the watch. | 🟡 | [Tredict](https://www.tredict.com/blog/garmin_personal_api_chatgpt_and_claude/), [ShapeCalendar](https://shapecalendar.com/guides/garmin-personal-api) |
+| Key creation: Garmin Connect Web → [Personal API Key page](https://connect.garmin.com/app/settings/personalApiToken) → Create Key → accept terms → pick expiry → Create. Shown **once**; if lost, delete and create a new one. No application or approval. | ✅ | [Garmin Personal API](https://developer.garmin.com/gc-developer-program/personal/personal-api) |
+| Key expiry options: 30, 90, 180 days or 1 year. Garmin emails a reminder about a week before. Deleting the key also kills its access tokens. | ✅ | [Garmin Personal FAQ](https://developer.garmin.com/gc-developer-program/personal/personal-faq/) |
+| The key is not used on data calls. `POST https://personal.connectapi.garmin.com/personalapitoken-service/personal-api/personal-api-key/token` with header `Authorization: ApiKey <key>` returns an OAuth2 access token, then sent as a bearer token. | ✅ | [Garmin Personal API](https://developer.garmin.com/gc-developer-program/personal/personal-api) |
+| Access token lasts 24 h or until the key expires, whichever comes first. No refresh tokens: call the token endpoint again. | ✅ | [Garmin Personal FAQ](https://developer.garmin.com/gc-developer-program/personal/personal-faq/) |
+| "Not intended for commercial applications serving multiple end users." | ✅ | [Garmin Personal FAQ](https://developer.garmin.com/gc-developer-program/personal/personal-faq/) |
+| Endpoint list (relative paths; base URL for data calls not stated): activities search (`start`/`limit` paging), activity detail, activity download (`/download-service/files/activity/{id}`, returns a **ZIP** containing the file), daily summaries, steps, stress, hydration, Body Battery, SpO2, sleep (daily and range), daily HR, HR zones, HRV (daily and range), weight, food logs, fitness age, menstrual cycle, profile settings. Date-range limits per call are not documented. | ✅ (client) | [garmin/connect-personal-api-python](https://github.com/garmin/connect-personal-api-python) (official, Apache-2.0) |
+| **Pull only**: no webhooks or pings on the Personal tier. | 🟡 | [ShapeCalendar](https://shapecalendar.com/guides/garmin-personal-api) |
+| History reachable back to the first activity; per-call date windows (superseded by the M0 rows below). | ✅ see M0 | [ShapeCalendar](https://shapecalendar.com/guides/garmin-personal-api) |
+| Activities: JSON summaries plus original .FIT files. Some proprietary fields are stripped from API files. | 🟡 | DC Rainmaker, ShapeCalendar |
+| Health data: sleep (stages, score), overnight HRV, Body Battery, stress, steps, resting and all-day HR, pulse ox, hydration, weight, fitness age, HR zones. | 🟡 | ShapeCalendar |
+| Some fields (training readiness, VO2max) reportedly return "not found". | 🟡 | DC Rainmaker reader comments |
+| Rate limits are not published and may change without notice. Not mentioned in Garmin's FAQ or Python client either. | 🟡 | ShapeCalendar; absent from Garmin FAQ (2026-10-28) |
+| Terms: "Garmin Connect Personal API Supplemental Terms", accepted at key creation. The key "may be used only by you", with tools "that you develop or operate for your own use". Garmin may "throttle, delay, reject, suspend, or otherwise restrict API requests without notice". Quotes as read on 2026-10-21 by the secondary source; **the primary text has not been read** (it sits behind login). | 🟡 | [Apps for Strava](https://appsforstrava.com/blog/garmin-connect-developer-program-personal-api-key) (checked 2026-11-02) |
+| AI use on the Personal tier: one secondary source says the Supplemental Terms don't address AI either way. Clause 15.10 of the Developer Program Agreement requires an AI transparency statement and end-user consent, but that agreement is the licensee program (the copy read names Garmin China Shanghai RHQ, created 2026-03-03) and doesn't mention the Personal API. Storage and third-party hosting on the Personal tier: nothing found. | ❓ | [Apps for Strava](https://appsforstrava.com/blog/garmin-connect-developer-program-personal-api-key), [Agreement PDF](https://www8.garmin.com/en-US/GARMINCONNECTDEVELOPERPROGRAMAGREEMENT/GARMINCONNECTDEVELOPERPROGRAMAGREEMENT_EN.pdf) (checked 2026-11-02) |
+| Strength sets: edits made later in Garmin Connect are **not** written back to the .FIT (see the M0 rows below for what the API returns). | 🟡 | [Garmin FIT SDK forum](https://forums.garmin.com/developer/fit-sdk/f/discussion/319582/new-to-programming-question-about-strength-activity-fit-files), [intervals.icu forum](https://forum.intervals.icu/t/pulling-strength-workout-exercise-sets-reps-weight-from-garmin/123171) |
+
+## Observed in real API responses (M0, 2026-10-28)
+
+Source for every row: real calls to `https://personal.connectapi.garmin.com` with this user's key, on 2026-10-28. One user and one watch is a sample of one, so a limit seen here could differ for other accounts.
+
+| Fact | Status |
+|---|---|
+| Base URL for data calls is `https://personal.connectapi.garmin.com` (the same host as the token endpoint; also `DEFAULT_BASE_URL` in Garmin's Python client). | ✅ |
+| The token endpoint returns the JWT as **plain text**, not JSON. `exp − iat` = 24 h. Scopes: `CONNECT_READ`, `PERSONAL_API_FITNESS_READ`, `PERSONAL_API_NUTRITION_READ`, `PERSONAL_API_USER_READ`, `PERSONAL_API_WELLNESS_READ`, all read-only. | ✅ |
+| Activity search: `limit=100` and `limit=200` work; `limit=500` and `limit=1000` return **HTTP 500**. Page with `start` += 100. | ✅ |
+| Full activity history is reachable: 1,054 activities, 2022-11-22 → 2026-10-27, all from Garmin devices, all with `averageHR`, and 1,053 with Garmin's `activityTrainingLoad`. | ✅ |
+| Activity list items carry ~100 fields: summary, HR zones (`hrTimeInZone_1..5`), running dynamics, power, `fastestSplit_1000/1609/5000/10000`, training effect, `activityTrainingLoad`, `differenceBodyBattery`, `splitSummaries`. Strength items also have `totalSets`, `activeSets`, `totalReps` and `summarizedExerciseSets` (per category: sets, reps, volume, maxWeight, duration). | ✅ |
+| FIT download: `GET /download-service/files/activity/{id}` returns 406 with `Accept: application/json`. It needs `Accept: application/zip, application/x-zip-compressed, application/octet-stream`. The ZIP holds one `{id}_ACTIVITY.fit`. Example sizes: 70-min run 137 KB zipped / 316 KB unzipped, 28-min strength 11 KB / 30 KB. | ✅ |
+| Run FIT `record` messages at 1 s: lat/long, HR, cadence, distance, enhanced speed and altitude, power, vertical oscillation, stance time, vertical ratio, step length. Many undocumented messages are present too, so nothing obvious is stripped. | ✅ |
+| **Strength FIT `set` messages:** active and rest sets with duration and reps. `category` is an array of **3 candidate exercises**, often including `65534` (unknown); the summary uses the first one. **Weight is empty or 0.** | ✅ |
+| **Across all 142 strength sessions: weight was never logged (0 sessions with any weight), and 43 % of sets (1,210 of 2,775) are `UNKNOWN` exercise.** HIIT sessions (106) also carry `summarizedExerciseSets`. | ✅ |
+| `GET /activity-service/activity/{id}/exerciseSets` (an endpoint of the unofficial Connect API) → 404. The official client has no exercise-set endpoint. `/activity-service/activity/{id}/workouts` → `[]`. | ✅ |
+| Per-call date windows (largest that worked / smallest that failed): HRV summaries 365 d ok (364 entries); daily summaries 100 d ok; sleep summaries 31 ok / 60 fails; Body Battery 31 ok / 60 fails; stress and steps 28 ok / 29 fails (HTTP 400 with an empty body). | ✅ |
+| Health history goes back to the first device: sleep (with score), HRV and daily summaries are all present from Nov–Dec 2022. | ✅ |
+| Sleep summaries: stages (deep/light/REM/awake), `sleepScores`, respiration, `avgSleepStress`, `avgHeartRate`, `sleepNeed`. HRV: `hrvSummary` plus readings through the night. Daily summaries: bodyBattery, heartRate, stress, respiration, pulseOx, intensityMinutes, calories, hydration, movement, jetLag. | ✅ |
+| Re-check on 2026-11-02, after the user edited a session in Garmin Connect: 143 strength sessions, 0 with `maxWeight` or `volume` above 0 in `summarizedExerciseSets`; 1,222 of 2,802 sets `UNKNOWN`. What the edit changed isn't known yet, so this doesn't settle item 2 below. | 🟡 |
+| Date windows for hydration, weight and wellness activity summaries aren't measured. The sync uses 28 days, the smallest limit measured on any endpoint, and logs a 400 without stopping other streams. | ❓ |
+| First full sync run (2026-11-02): 345 payloads in 241 s at about 1 call per second, no 429. A .FIT ZIP averages about 59 KB across 136 activities, which puts all 1,056 at roughly 62 MB of the 1 GB quota. | ✅ |
+| Rate limits: about 80 calls in ~15 min, at most ~1/s, with no 429 and no rate-limit headers. That is not proof that there's no limit. | 🟡 |
+
+## Still to verify
+
+1. Read the primary text of the Supplemental Terms, especially anything on AI, storing data and hosting. It needs a logged-in Garmin Connect session.
+2. Whether `summarizedExerciseSets` reflects edits made in Garmin Connect. Low priority: only matters if weight-based strength metrics (R-STR-01…03) come back.
+3. Training readiness and VO2max: neither is in the official endpoint list.
