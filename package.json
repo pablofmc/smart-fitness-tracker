@@ -11,8 +11,7 @@
     "test:watch": "vitest",
     "typecheck": "next typegen && tsc --noEmit",
     "db:types": "supabase gen types typescript --local > src/lib/supabase/database.types.ts",
-    "test:db": "supabase test db",
-    "issues": "node scripts/publish-issues.mjs"
+    "test:db": "supabase test db"
   },
   "dependencies": {
     "@supabase/ssr": "0.12.7",
