@@ -12,7 +12,7 @@ export default async function HoyPage() {
   return (
     <div className="flex flex-col gap-3.5">
       <TodayHeader syncLabel={syncLabel} />
-      <SyncNotice keyStatus={key} lastFailed={sync.lastFailed} history={sync.history} activityCount={sync.activityCount} />
+      <SyncNotice keyStatus={key} lastFailed={sync.lastFailed} stopped={sync.stopped} history={sync.history} activityCount={sync.activityCount} />
       <ComingSoon title="Hoy" text="Tu sueño, HRV y forma aparecerán aquí muy pronto." />
     </div>
   );

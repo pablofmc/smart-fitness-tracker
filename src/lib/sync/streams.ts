@@ -69,3 +69,14 @@ export function historyFraction(position: string | null, today: string) {
   const total = toMs(today) - toMs(HISTORY_START);
   return total <= 0 ? 1 : Math.min(1, Math.max(0, (toMs(position) - toMs(HISTORY_START)) / total));
 }
+
+/** Calls a stream needs to cover the whole history, so a one-call-per-day stream weighs what it costs. */
+export function historyCalls(maxDays: number, today: string) {
+  return Math.ceil((toMs(today) - toMs(HISTORY_START)) / DAY_MS / maxDays);
+}
+
+/** Share of calls done, 0 to 1. Averaging streams evenly would run ahead of the real wait. */
+export function weightedProgress(parts: { calls: number; fraction: number }[]) {
+  const total = parts.reduce((sum, part) => sum + part.calls, 0);
+  return total === 0 ? 1 : parts.reduce((sum, part) => sum + part.calls * part.fraction, 0) / total;
+}
