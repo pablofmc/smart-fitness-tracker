@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { FormChart } from "@/components/form-chart";
+import { HealthTrends } from "@/components/health-trends";
+import type { Scale } from "@/lib/metrics/trend";
+import { ownerToday } from "@/lib/today";
 import { periodStart, pickPeriod, PERIODS } from "@/lib/activities/list";
 import { weeklyLoad, type LoadedActivity } from "@/lib/load/weekly";
 import { dailyLoads, formCurve } from "@/lib/metrics/form";
@@ -31,9 +34,13 @@ async function readLoads(): Promise<LoadedActivity[]> {
   }
 }
 
-export default async function TendenciasPage({ searchParams }: { searchParams: Promise<{ periodo?: string }> }) {
-  const period = pickPeriod((await searchParams).periodo ?? "3m");
-  const today = new Date().toISOString().slice(0, 10);
+export default async function TendenciasPage({ searchParams }: { searchParams: Promise<{ periodo?: string; metrica?: string; escala?: string }> }) {
+  const params = await searchParams;
+  const period = pickPeriod(params.periodo ?? "3m");
+  const scale: Scale = params.escala === "meses" || params.escala === "años" ? params.escala : "semanas";
+  const today = await ownerToday();
+  const href = (next: { periodo?: string; metrica?: string; escala?: string }) =>
+    `/tendencias?${new URLSearchParams({ periodo: next.periodo ?? period.key, metrica: next.metrica ?? params.metrica ?? "sleep", escala: next.escala ?? scale })}`;
   const activities = await readLoads();
   const loaded = activities.filter((a) => a.trimp !== null);
 
@@ -54,7 +61,7 @@ export default async function TendenciasPage({ searchParams }: { searchParams: P
         {PERIODS.map((option) => (
           <Link
             key={option.key}
-            href={`/tendencias?periodo=${option.key}`}
+            href={href({ periodo: option.key })}
             aria-current={option.key === period.key ? "true" : undefined}
             className={`flex h-10 items-center justify-center rounded-xl text-[13px] font-bold ${option.key === period.key ? "bg-primary text-on-primary" : "text-ink-soft"}`}
           >
@@ -141,6 +148,7 @@ export default async function TendenciasPage({ searchParams }: { searchParams: P
           </div>
         </section>
       ) : null}
+      <HealthTrends metricKey={params.metrica ?? "sleep"} scale={scale} from={from} href={href} />
     </div>
   );
 }
