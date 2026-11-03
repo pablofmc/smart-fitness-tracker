@@ -32,14 +32,14 @@ async function readActivities(from: string | null) {
   const db = await createClient();
   const rows: ListedActivity[] = [];
   for (let start = 0; ; start += PAGE_SIZE) {
-    let query = db.from("activities").select("id, name, sport, local_day, duration_s, distance_m, avg_hr, exercise_count");
+    let query = db.from("activities").select("id, name, sport, local_day, duration_s, distance_m, avg_hr, exercise_count, activity_loads(trimp)");
     if (from) query = query.gte("local_day", from);
     const { data, error } = await query
       .order("local_day", { ascending: false })
       .order("id", { ascending: false })
       .range(start, start + PAGE_SIZE - 1);
     if (error) throw new Error("No pudimos leer tus actividades.");
-    rows.push(...data);
+    rows.push(...data.map(({ activity_loads, ...activity }) => ({ ...activity, trimp: activity_loads?.trimp ?? null })));
     if (data.length < PAGE_SIZE) return rows;
   }
 }
@@ -127,7 +127,9 @@ export default async function ActividadesPage({ searchParams }: { searchParams: 
                 </div>
                 <div className="flex flex-col items-end gap-0.5">
                   {main ? <span className="text-[15px] font-extrabold tabular-nums">{main}</span> : null}
-                  <span className="text-xs font-semibold text-muted">{activity.avg_hr === null ? "sin FC" : `${Math.round(activity.avg_hr)} lpm`}</span>
+                  <span className="text-xs font-semibold text-muted">
+                    {activity.trimp != null ? `${Math.round(activity.trimp)} TRIMP` : activity.avg_hr === null ? "sin FC" : ""}
+                  </span>
                 </div>
               </Link>
             );

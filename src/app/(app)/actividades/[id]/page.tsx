@@ -11,6 +11,7 @@ export const metadata: Metadata = { title: "Actividad" };
 const LONG_DATE = new Intl.DateTimeFormat("es", { weekday: "long", day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 const SYNCED = new Intl.DateTimeFormat("es", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const WHOLE = new Intl.NumberFormat("es", { maximumFractionDigits: 0, useGrouping: "always" });
+const ZONE_COLORS = ["bg-field", "bg-nav-on", "bg-primary", "bg-amber-btn", "bg-warn-btn"];
 
 const number = (value: unknown) => (typeof value === "number" && Number.isFinite(value) ? value : null);
 const clean = (date: string) => date.replaceAll(".", "").replace(",", "");
@@ -47,7 +48,7 @@ export default async function ActivityPage({ params }: { params: Promise<{ id: s
   const [{ data: activity }, { data: fitFile }] = await Promise.all([
     db
       .from("activities")
-      .select("id, name, sport, local_day, duration_s, distance_m, avg_hr, max_hr, data")
+      .select("id, name, sport, local_day, duration_s, distance_m, avg_hr, max_hr, data, activity_loads(trimp, zone_seconds, unavailable_reason, hr_settings(effective_from, lthr))")
       .eq("id", Number(id))
       .maybeSingle(),
     db.from("raw_files").select("id, storage_path, size_bytes, fetched_at").eq("kind", "activity_fit").eq("source_key", id).maybeSingle(),
@@ -77,6 +78,10 @@ export default async function ActivityPage({ params }: { params: Promise<{ id: s
   const laps = fit ? lapRows(fit.laps).filter((lap) => lap.time_s) : [];
   const elevation = number(data.elevationGain);
   const calories = number(data.calories);
+  const garminLoad = number(data.activityTrainingLoad);
+  const load = activity.activity_loads;
+  const zones = load?.zone_seconds ?? null;
+  const zoneTotal = zones ? zones.reduce((sum, s) => sum + s, 0) : 0;
 
   const stats = [
     activity.duration_s === null ? null : { v: clock(activity.duration_s), l: "duración" },
@@ -88,6 +93,9 @@ export default async function ActivityPage({ params }: { params: Promise<{ id: s
     elevation ? { v: `+${WHOLE.format(elevation)}`, l: "m desnivel" } : null,
     activity.avg_hr === null ? null : { v: WHOLE.format(activity.avg_hr), l: "FC media" },
     activity.max_hr === null ? null : { v: WHOLE.format(activity.max_hr), l: "FC máx" },
+    load?.trimp != null ? { v: WHOLE.format(load.trimp), l: "TRIMP" } : null,
+    // Garmin's own value, shown beside ours and never used in our formulas (R-LOAD-04, ADR-0004).
+    garminLoad === null ? null : { v: WHOLE.format(garminLoad), l: "carga Garmin" },
     calories === null ? null : { v: WHOLE.format(calories), l: "kcal" },
   ].filter((stat) => stat !== null);
 
@@ -123,11 +131,23 @@ export default async function ActivityPage({ params }: { params: Promise<{ id: s
             </div>
           ))}
         </dl>
+        {load?.unavailable_reason ? <span className="text-xs text-muted">Sin TRIMP: {load.unavailable_reason.toLowerCase()}.</span> : null}
       </section>
 
       {series.length ? (
         <section className="flex flex-col gap-3 rounded-3xl bg-card p-4">
           <ActivityChart series={series} missing={missing} />
+          {zones && zoneTotal > 0 ? (
+            <>
+              <div className="flex h-2.5 gap-0.5 overflow-hidden rounded" aria-hidden>
+                {zones.map((seconds, i) => (seconds > 0 ? <div key={i} className={ZONE_COLORS[i]} style={{ width: `${(seconds / zoneTotal) * 100}%` }} /> : null))}
+              </div>
+              <span className="text-xs text-muted">
+                Zonas: {zones.map((seconds, i) => `Z${i + 1} ${Math.round(seconds / 60)}`).join(" · ")} min
+                {load?.hr_settings ? ` · umbral ${load.hr_settings.lthr} lpm` : ""}
+              </span>
+            </>
+          ) : null}
         </section>
       ) : fitFile ? (
         <p className="rounded-[20px] bg-card px-[18px] py-4 text-sm text-muted">Esta actividad no grabó datos por segundo, así que no hay gráficos.</p>

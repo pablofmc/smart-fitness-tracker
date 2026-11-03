@@ -68,6 +68,7 @@ describe("groupByWeek", () => {
     expect(weeks.map((week) => week.label)).toEqual(["Esta semana", "Semana del 26 oct"]);
     expect(weeks[1].items.map((item) => item.id)).toEqual([2, 3]);
     expect(weeks[1].total).toBe("10,0 km · 1 h 30 min");
+    expect(groupByWeek([activity({ trimp: 60.4 }), activity({ id: 2, trimp: null })], "2026-11-03")[0].total).toBe("20,0 km · 2 h 00 min · 60 TRIMP");
   });
 
   it("names the year on weeks from another year", () => {

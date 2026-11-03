@@ -1,6 +1,7 @@
 import "server-only";
 import { parsePendingActivities } from "@/lib/activities/store";
 import { parsePendingHealth } from "@/lib/health/store";
+import { computePendingLoads } from "@/lib/load/store";
 import { createGarminClient, GarminBlockedError, GarminRequestError, GarminUnavailableError } from "@/lib/garmin/client";
 import { markGarminKeyBlocked, readUsableGarminKey } from "@/lib/garmin/key";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -9,7 +10,7 @@ import { createSyncStore } from "./store";
 
 /** Longer than Vercel Hobby's 300 s limit, so a "running" row this old can only be a killed run. */
 const STALE_RUN_MS = 6 * 60_000;
-/** Parsing shares the function's time limit with the Garmin budget, and resumes on the next run. */
+/** Parsing and load computing share the function's time limit with the Garmin budget, and resume on the next run. */
 const PARSE_BUDGET_MS = 30_000;
 
 export type StartOutcome = "finished" | "failed" | "blocked" | "no-key" | "already-running";
@@ -54,6 +55,7 @@ export async function startSync(trigger: "scheduled" | "manual", budgetMs: numbe
     const parseUntil = Date.now() + PARSE_BUDGET_MS;
     await parsePendingActivities(PARSE_BUDGET_MS).catch((caught) => failures.push(`Parsing activities: ${describe(caught)}`));
     await parsePendingHealth(Math.max(0, parseUntil - Date.now())).catch((caught) => failures.push(`Parsing health: ${describe(caught)}`));
+    await computePendingLoads(Math.max(0, parseUntil - Date.now())).catch((caught) => failures.push(`Computing loads: ${describe(caught)}`));
     const failed = failures.length > 0;
     await finish(failed ? "failed" : "succeeded", result.itemsFetched, failed ? failures.join("; ").slice(0, 500) : null);
     return failed ? "failed" : "finished";

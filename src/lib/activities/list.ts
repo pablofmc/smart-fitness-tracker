@@ -9,6 +9,7 @@ export type ListedActivity = {
   distance_m: number | null;
   avg_hr: number | null;
   exercise_count: number | null;
+  trimp?: number | null;
 };
 
 const GROUPS: Record<string, string> = {
@@ -110,7 +111,8 @@ export function headline({ sport, distance_m, exercise_count }: ListedActivity) 
 export function weekTotal(items: ListedActivity[]) {
   const meters = items.reduce((sum, item) => sum + (item.distance_m ?? 0), 0);
   const seconds = items.reduce((sum, item) => sum + (item.duration_s ?? 0), 0);
-  return [meters > 0 ? formatKm(meters) : null, formatDuration(seconds)].filter(Boolean).join(" · ");
+  const load = items.reduce((sum, item) => sum + (item.trimp ?? 0), 0);
+  return [meters > 0 ? formatKm(meters) : null, formatDuration(seconds), load > 0 ? `${Math.round(load)} TRIMP` : null].filter(Boolean).join(" · ");
 }
 
 /** Activities must come newest first; weeks start on Monday and keep that order. */
