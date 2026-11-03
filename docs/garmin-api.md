@@ -47,6 +47,7 @@ Source for every row: real calls to `https://personal.connectapi.garmin.com` wit
 | Date windows for hydration, weight and wellness activity summaries aren't measured. The sync uses 28 days, the smallest limit measured on any endpoint, and logs a 400 without stopping other streams. | ❓ |
 | First full sync run (2026-11-02): 345 payloads in 241 s at about 1 call per second, no 429. A .FIT ZIP averages about 59 KB across 136 activities, which puts all 1,056 at roughly 62 MB of the 1 GB quota. | ✅ |
 | Rate limits: about 80 calls in ~15 min, at most ~1/s, with no 429 and no rate-limit headers. That is not proof that there's no limit. | 🟡 |
+| First 429s (2026-11-02, `/sleep-service/sleep/dailySleep`): with 200 ms between calls (about 1.7 calls per second once latency counts), two runs in a row got 429 after about 70–80 calls in under a minute, and three retries over 7 s didn't clear it. The key wasn't blocked. At 1 s between calls (about 50 calls per minute), about 3,000 calls ran with no failed run. So the limit sits somewhere between those two rates; its exact value and window are unknown. | ✅ |
 
 ## Still to verify
 
