@@ -23,7 +23,81 @@ export type Database = {
           }
         },"public": {
           Tables: {
-            "garmin_key": {
+            "activities": {
+                  Row: {
+                    "avg_hr": number | null,"data": NonNullable<Json>,"distance_m": number | null,"duration_s": number | null,"exercise_count": number | null,"id": number,"local_day": string,"max_hr": number | null,"moving_s": number | null,"name": string | null,"parser_version": number,"raw_file_id": number,"raw_sha256": string,"sport": string,"started_at": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "avg_hr"?: number | null,"data": NonNullable<Json>,"distance_m"?: number | null,"duration_s"?: number | null,"exercise_count"?: number | null,"id": number,"local_day": string,"max_hr"?: number | null,"moving_s"?: number | null,"name"?: string | null,"parser_version": number,"raw_file_id": number,"raw_sha256": string,"sport": string,"started_at"?: string | null
+                  }
+                  Update: {
+                    "avg_hr"?: number | null,"data"?: NonNullable<Json>,"distance_m"?: number | null,"duration_s"?: number | null,"exercise_count"?: number | null,"id"?: number,"local_day"?: string,"max_hr"?: number | null,"moving_s"?: number | null,"name"?: string | null,"parser_version"?: number,"raw_file_id"?: number,"raw_sha256"?: string,"sport"?: string,"started_at"?: string | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "activities_raw_file_id_fkey"
+      columns: ["raw_file_id"]
+isOneToOne: false
+      referencedRelation: "raw_files"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"activity_loads": {
+                  Row: {
+                    "activity_id": number,"computed_at": string,"formula_version": number,"hr_minutes": number | null,"hr_settings_id": number | null,"trimp": number | null,"unavailable_reason": string | null,"zone_seconds": (number)[] | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "activity_id": number,"computed_at"?: string,"formula_version": number,"hr_minutes"?: number | null,"hr_settings_id"?: number | null,"trimp"?: number | null,"unavailable_reason"?: string | null,"zone_seconds"?: (number)[] | null
+                  }
+                  Update: {
+                    "activity_id"?: number,"computed_at"?: string,"formula_version"?: number,"hr_minutes"?: number | null,"hr_settings_id"?: number | null,"trimp"?: number | null,"unavailable_reason"?: string | null,"zone_seconds"?: (number)[] | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "activity_loads_activity_id_fkey"
+      columns: ["activity_id"]
+isOneToOne: true
+      referencedRelation: "activities"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "activity_loads_hr_settings_id_fkey"
+      columns: ["hr_settings_id"]
+isOneToOne: false
+      referencedRelation: "hr_settings"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"checkin_tags": {
+                  Row: {
+                    "created_at": string,"name": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"name": string
+                  }
+                  Update: {
+                    "created_at"?: string,"name"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"checkins": {
+                  Row: {
+                    "day": string,"feel": number | null,"note": string | null,"tags": (string)[],"updated_at": string,"weight_kg": number | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "day": string,"feel"?: number | null,"note"?: string | null,"tags"?: (string)[],"updated_at"?: string,"weight_kg"?: number | null
+                  }
+                  Update: {
+                    "day"?: string,"feel"?: number | null,"note"?: string | null,"tags"?: (string)[],"updated_at"?: string,"weight_kg"?: number | null
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"garmin_key": {
                   Row: {
                     "api_key": string,"blocked_at": string | null,"expires_on": string,"id": boolean,"updated_at": string
                   }
@@ -33,6 +107,60 @@ export type Database = {
                   }
                   Update: {
                     "api_key"?: string,"blocked_at"?: string | null,"expires_on"?: string,"id"?: boolean,"updated_at"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"health_days": {
+                  Row: {
+                    "data": NonNullable<Json>,"day": string,"kind": string,"parser_version": number,"raw_file_id": number,"raw_sha256": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "data": NonNullable<Json>,"day": string,"kind": string,"parser_version": number,"raw_file_id": number,"raw_sha256": string
+                  }
+                  Update: {
+                    "data"?: NonNullable<Json>,"day"?: string,"kind"?: string,"parser_version"?: number,"raw_file_id"?: number,"raw_sha256"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "health_days_raw_file_id_fkey"
+      columns: ["raw_file_id"]
+isOneToOne: false
+      referencedRelation: "raw_files"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"health_parsed_files": {
+                  Row: {
+                    "parser_version": number,"raw_file_id": number,"raw_sha256": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "parser_version": number,"raw_file_id": number,"raw_sha256": string
+                  }
+                  Update: {
+                    "parser_version"?: number,"raw_file_id"?: number,"raw_sha256"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "health_parsed_files_raw_file_id_fkey"
+      columns: ["raw_file_id"]
+isOneToOne: true
+      referencedRelation: "raw_files"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"hr_settings": {
+                  Row: {
+                    "created_at": string,"effective_from": string,"id": number,"lthr": number,"max_hr": number,"resting_hr": number,"source": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"effective_from": string,"id"?: never,"lthr": number,"max_hr": number,"resting_hr": number,"source"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"effective_from"?: string,"id"?: never,"lthr"?: number,"max_hr"?: number,"resting_hr"?: number,"source"?: string
                   }
                   Relationships: [
                     
@@ -50,6 +178,32 @@ export type Database = {
                   }
                   Relationships: [
                     
+                  ]
+                },"run_metrics": {
+                  Row: {
+                    "activity_id": number,"best_10k_s": number | null,"best_1k_s": number | null,"best_21k_s": number | null,"best_5k_s": number | null,"cadence_spm": number | null,"computed_at": string,"counts_for_records": boolean,"drift_pct": number | null,"drift_reason": string | null,"formula_version": number,"hr_settings_id": number | null,"pace_at_hr_reason": string | null,"pace_at_hr_s_per_km": number | null,"target_hr": number | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "activity_id": number,"best_10k_s"?: number | null,"best_1k_s"?: number | null,"best_21k_s"?: number | null,"best_5k_s"?: number | null,"cadence_spm"?: number | null,"computed_at"?: string,"counts_for_records": boolean,"drift_pct"?: number | null,"drift_reason"?: string | null,"formula_version": number,"hr_settings_id"?: number | null,"pace_at_hr_reason"?: string | null,"pace_at_hr_s_per_km"?: number | null,"target_hr"?: number | null
+                  }
+                  Update: {
+                    "activity_id"?: number,"best_10k_s"?: number | null,"best_1k_s"?: number | null,"best_21k_s"?: number | null,"best_5k_s"?: number | null,"cadence_spm"?: number | null,"computed_at"?: string,"counts_for_records"?: boolean,"drift_pct"?: number | null,"drift_reason"?: string | null,"formula_version"?: number,"hr_settings_id"?: number | null,"pace_at_hr_reason"?: string | null,"pace_at_hr_s_per_km"?: number | null,"target_hr"?: number | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "run_metrics_activity_id_fkey"
+      columns: ["activity_id"]
+isOneToOne: true
+      referencedRelation: "activities"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "run_metrics_hr_settings_id_fkey"
+      columns: ["hr_settings_id"]
+isOneToOne: false
+      referencedRelation: "hr_settings"
+      referencedColumns: ["id"]
+    }
                   ]
                 },"sync_cursors": {
                   Row: {
