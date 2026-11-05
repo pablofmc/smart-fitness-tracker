@@ -139,5 +139,6 @@ Smart Fitness Tracker: a personal web app that pulls my own Garmin data (Persona
 | R-LTR-01 | LATER | AI coach: questions in natural language and weekly summaries. Blocked on reading Garmin's Personal tier terms on AI use. |
 | R-LTR-02 | LATER | Notifications or emailed summaries. |
 | R-LTR-03 | LATER | Deep analysis for more sports (e.g. cycling power and FTP), as new modules (R-ACT-03). |
+| R-LTR-04 | LATER | A second, invited user (my spouse) with her own Garmin Personal key and her own data, invisible to me and mine to her. Blocked on reading Garmin's Personal tier terms on serving another person. Supersedes ADR-0001 and changes R-SEC-01 when built. |
 | R-WONT-01 | WON'T | Sending workouts or routes to the watch: the Personal tier is read-only. |
-| R-WONT-02 | WON'T | Other users. Single user only. |
+| R-WONT-02 | WON'T | Open sign-ups or users beyond the invited household (R-LTR-04). |
