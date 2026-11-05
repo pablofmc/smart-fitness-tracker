@@ -5,6 +5,7 @@ import { HealthTrends } from "@/components/health-trends";
 import type { Scale } from "@/lib/metrics/trend";
 import { ownerToday } from "@/lib/today";
 import { RunningTrends } from "@/modules/running/trends";
+import { StrengthTrends } from "@/modules/strength/trends";
 import { periodStart, pickPeriod, PERIODS } from "@/lib/activities/list";
 import { weeklyLoad, type LoadedActivity } from "@/lib/load/weekly";
 import { dailyLoads, formCurve } from "@/lib/metrics/form";
@@ -152,6 +153,8 @@ export default async function TendenciasPage({ searchParams }: { searchParams: P
       <HealthTrends metricKey={params.metrica ?? "sleep"} scale={scale} from={from} href={href} />
 
       <RunningTrends from={from} today={today} />
+
+      <StrengthTrends from={from} today={today} />
     </div>
   );
 }

@@ -205,6 +205,26 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"strength_sessions": {
+                  Row: {
+                    "active_s": number,"activity_id": number,"computed_at": string,"exercises": NonNullable<Json>,"formula_version": number,"group_sets": NonNullable<Json>,"total_reps": number,"total_sets": number,"unknown_sets": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "active_s": number,"activity_id": number,"computed_at"?: string,"exercises": NonNullable<Json>,"formula_version": number,"group_sets": NonNullable<Json>,"total_reps": number,"total_sets": number,"unknown_sets": number
+                  }
+                  Update: {
+                    "active_s"?: number,"activity_id"?: number,"computed_at"?: string,"exercises"?: NonNullable<Json>,"formula_version"?: number,"group_sets"?: NonNullable<Json>,"total_reps"?: number,"total_sets"?: number,"unknown_sets"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "strength_sessions_activity_id_fkey"
+      columns: ["activity_id"]
+isOneToOne: true
+      referencedRelation: "activities"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"sync_cursors": {
                   Row: {
                     "backfill_completed_at": string | null,"position": string | null,"stream": string,"updated_at": string

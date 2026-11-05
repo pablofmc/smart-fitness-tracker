@@ -3,6 +3,7 @@ import { parsePendingActivities } from "@/lib/activities/store";
 import { parsePendingHealth } from "@/lib/health/store";
 import { computePendingRunMetrics } from "@/lib/load/running";
 import { computePendingLoads } from "@/lib/load/store";
+import { computePendingStrength } from "@/lib/load/strength";
 import { createGarminClient, GarminBlockedError, GarminRequestError, GarminUnavailableError } from "@/lib/garmin/client";
 import { markGarminKeyBlocked, readUsableGarminKey } from "@/lib/garmin/key";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -58,6 +59,7 @@ export async function startSync(trigger: "scheduled" | "manual", budgetMs: numbe
     await parsePendingHealth(Math.max(0, parseUntil - Date.now())).catch((caught) => failures.push(`Parsing health: ${describe(caught)}`));
     await computePendingLoads(Math.max(0, parseUntil - Date.now())).catch((caught) => failures.push(`Computing loads: ${describe(caught)}`));
     await computePendingRunMetrics(Math.max(0, parseUntil - Date.now())).catch((caught) => failures.push(`Computing run metrics: ${describe(caught)}`));
+    await computePendingStrength(Math.max(0, parseUntil - Date.now())).catch((caught) => failures.push(`Computing strength sessions: ${describe(caught)}`));
     const failed = failures.length > 0;
     await finish(failed ? "failed" : "succeeded", result.itemsFetched, failed ? failures.join("; ").slice(0, 500) : null);
     return failed ? "failed" : "finished";

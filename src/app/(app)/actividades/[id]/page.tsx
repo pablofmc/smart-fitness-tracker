@@ -7,9 +7,10 @@ import { formatDuration, formatKm, sportGroup, sportsInGroup } from "@/lib/activ
 import { activityVerdict } from "@/lib/metrics/verdict";
 import { createClient } from "@/lib/supabase/server";
 import { RunSection } from "@/modules/running/run-section";
+import { StrengthSection } from "@/modules/strength/strength-section";
 
 /** Deep analysis per sport group, each a separate module (R-ACT-03). Adding one touches no other. */
-const SPORT_MODULES: Partial<Record<string, (props: { activityId: number }) => Promise<React.ReactNode>>> = { Correr: RunSection };
+const SPORT_MODULES: Partial<Record<string, (props: { activityId: number }) => Promise<React.ReactNode>>> = { Correr: RunSection, Fuerza: StrengthSection };
 
 export const metadata: Metadata = { title: "Actividad" };
 

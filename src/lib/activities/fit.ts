@@ -29,6 +29,8 @@ export function decodeActivityZip(zip: Uint8Array) {
   return {
     records: (messages.recordMesgs ?? []) as FitRecord[],
     laps: (messages.lapMesgs ?? []) as FitLap[],
+    // Strength `set` messages, shaped by the strength module that reads them.
+    sets: (messages.setMesgs ?? []) as unknown[],
   };
 }
 
