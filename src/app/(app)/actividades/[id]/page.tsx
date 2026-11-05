@@ -6,6 +6,11 @@ import { chartSeries, decodeActivityZip, lapRows, missingCharts, RUN_CHARTS, typ
 import { formatDuration, formatKm, sportGroup, sportsInGroup } from "@/lib/activities/list";
 import { activityVerdict } from "@/lib/metrics/verdict";
 import { createClient } from "@/lib/supabase/server";
+import { RunSection } from "@/modules/running/run-section";
+import { StrengthSection } from "@/modules/strength/strength-section";
+
+/** Deep analysis per sport group, each a separate module (R-ACT-03). Adding one touches no other. */
+const SPORT_MODULES: Partial<Record<string, (props: { activityId: number }) => Promise<React.ReactNode>>> = { Correr: RunSection, Fuerza: StrengthSection };
 
 export const metadata: Metadata = { title: "Actividad" };
 
@@ -57,6 +62,7 @@ export default async function ActivityPage({ params }: { params: Promise<{ id: s
   if (!activity) notFound();
 
   const group = sportGroup(activity.sport);
+  const SportModule = SPORT_MODULES[group];
   const usesSpeed = group === "Ciclismo";
   // Pools are measured in metres and per 100 m, and their cadence counts strokes, not steps.
   const isSwim = group === "Natación";
@@ -170,6 +176,8 @@ export default async function ActivityPage({ params }: { params: Promise<{ id: s
       ) : fitFile ? (
         <p className="rounded-[20px] bg-card px-[18px] py-4 text-sm text-muted">Esta actividad no grabó datos por segundo, así que no hay gráficos.</p>
       ) : null}
+
+      {SportModule ? <SportModule activityId={activity.id} /> : null}
 
       {laps.length > 1 ? (
         <section className="flex flex-col gap-2 rounded-3xl bg-card p-[18px]">

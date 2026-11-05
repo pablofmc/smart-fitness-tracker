@@ -81,6 +81,11 @@ export function weekLabel(monday: string, today: string) {
   return `Semana del ${clean(format.format(new Date(`${monday}T00:00:00Z`)))}`;
 }
 
+/** "2026-10-26" → "26 oct 2026". */
+export function formatShortDay(day: string) {
+  return clean(WEEK_DATE_YEAR.format(new Date(`${day}T00:00:00Z`)));
+}
+
 /** "2026-10-26" → "Lun 26 oct". */
 export function formatRowDate(day: string) {
   const date = clean(ROW_DATE.format(new Date(`${day}T00:00:00Z`)));
