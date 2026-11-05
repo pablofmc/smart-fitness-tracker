@@ -36,6 +36,15 @@ export type MetricKey = "hr" | "pace" | "speed" | "altitude" | "cadence";
 
 export type Series = { key: MetricKey; points: { t: number; v: number }[] };
 
+/** Charts a run always offers (R-ACT-05). The ones its file lacks are shown with the reason instead of left out. */
+export const RUN_CHARTS: MetricKey[] = ["hr", "pace", "altitude", "cadence"];
+
+/** The expected charts the file has no series for, in the expected order. */
+export function missingCharts(series: Series[], expected: MetricKey[]): MetricKey[] {
+  const present = new Set(series.map((s) => s.key));
+  return expected.filter((key) => !present.has(key));
+}
+
 /** Below this speed you're standing, and a pace of "60:00 /km" would flatten the chart. */
 const MIN_MOVING_SPEED = 0.5;
 const MIN_COVERAGE = 0.1;

@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActivityChart } from "@/components/activity-chart";
-import { chartSeries, decodeActivityZip, lapRows, type LapRow } from "@/lib/activities/fit";
+import { chartSeries, decodeActivityZip, lapRows, missingCharts, RUN_CHARTS, type LapRow } from "@/lib/activities/fit";
 import { formatDuration, formatKm, sportGroup, sportsInGroup } from "@/lib/activities/list";
 import { createClient } from "@/lib/supabase/server";
 
@@ -73,6 +73,7 @@ export default async function ActivityPage({ params }: { params: Promise<{ id: s
   ]);
 
   const series = fit ? chartSeries(fit.records, { speedAsPace: !usesSpeed }) : [];
+  const missing = missingCharts(series, group === "Correr" ? RUN_CHARTS : []);
   const laps = fit ? lapRows(fit.laps).filter((lap) => lap.time_s) : [];
   const elevation = number(data.elevationGain);
   const calories = number(data.calories);
@@ -126,7 +127,7 @@ export default async function ActivityPage({ params }: { params: Promise<{ id: s
 
       {series.length ? (
         <section className="flex flex-col gap-3 rounded-3xl bg-card p-4">
-          <ActivityChart series={series} />
+          <ActivityChart series={series} missing={missing} />
         </section>
       ) : fitFile ? (
         <p className="rounded-[20px] bg-card px-[18px] py-4 text-sm text-muted">Esta actividad no grabó datos por segundo, así que no hay gráficos.</p>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chartSeries, lapRows, type FitRecord } from "./fit";
+import { chartSeries, lapRows, missingCharts, RUN_CHARTS, type FitRecord } from "./fit";
 
 const at = (seconds: number) => new Date(Date.UTC(2026, 0, 1) + seconds * 1000);
 
@@ -32,6 +32,15 @@ describe("chartSeries", () => {
     const swim = Array.from({ length: 100 }, (_, i) => ({ timestamp: at(i), heartRate: 120 }));
     expect(chartSeries(swim, { speedAsPace: true }).map((s) => s.key)).toEqual(["hr"]);
     expect(chartSeries([], { speedAsPace: true })).toEqual([]);
+  });
+});
+
+describe("missingCharts", () => {
+  it("names the run charts a treadmill file can't fill", () => {
+    const treadmill = run.map((record) => ({ ...record, enhancedAltitude: undefined }));
+    expect(missingCharts(chartSeries(treadmill, { speedAsPace: true }), RUN_CHARTS)).toEqual(["altitude"]);
+    expect(missingCharts(chartSeries(run, { speedAsPace: true }), RUN_CHARTS)).toEqual([]);
+    expect(missingCharts([], [])).toEqual([]);
   });
 });
 

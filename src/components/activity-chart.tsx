@@ -27,11 +27,53 @@ function hours(seconds: number) {
   return rest === 0 ? `${minutes / 60} h` : `${Math.floor(minutes / 60)} h ${String(rest).padStart(2, "0")}`;
 }
 
-/** Time chart for each metric the activity recorded (R-ACT-05). Faster pace plots higher. */
-export function ActivityChart({ series }: { series: Series[] }) {
+const ORDER = Object.keys(METRICS) as MetricKey[];
+
+/** Why a chart the sport expects is empty. Missing is shown, never drawn as zero. */
+const MISSING: Partial<Record<MetricKey, string>> = {
+  altitude: "El reloj no grabó altitud, como pasa en cinta o bajo techo.",
+};
+
+/**
+ * Time chart for each metric the activity recorded (R-ACT-05). Faster pace plots higher.
+ * `missing` are charts the sport expects but the file lacks: they keep their tab and say why.
+ */
+export function ActivityChart({ series, missing = [] }: { series: Series[]; missing?: MetricKey[] }) {
   const [key, setKey] = useState(series[0]?.key);
+  const tabs = ORDER.filter((k) => missing.includes(k) || series.some((s) => s.key === k));
+  const absent = missing.includes(key) ? key : null;
   const current = series.find((s) => s.key === key) ?? series[0];
   if (!current) return null;
+
+  const tabList =
+    tabs.length > 1 ? (
+      <div role="tablist" aria-label="Métrica del gráfico" className="grid gap-1 rounded-2xl bg-sunk p-1" style={{ gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))` }}>
+        {tabs.map((k) => (
+          <button
+            key={k}
+            type="button"
+            role="tab"
+            aria-selected={k === (absent ?? current.key)}
+            onClick={() => setKey(k)}
+            className={`h-10 rounded-xl text-[13px] font-bold ${k === (absent ?? current.key) ? "bg-primary text-on-primary" : "text-ink-soft"}`}
+          >
+            {METRICS[k].label}
+          </button>
+        ))}
+      </div>
+    ) : null;
+
+  if (absent) {
+    return (
+      <div className="flex flex-col gap-3">
+        {tabList}
+        <span className="text-base font-extrabold">Sin {METRICS[absent].label.toLowerCase()}</span>
+        <div className="flex items-center justify-center rounded-2xl bg-sunk px-6 text-center text-sm text-muted" style={{ height: HEIGHT }}>
+          {MISSING[absent] ?? "El reloj no grabó este dato en esta actividad."}
+        </div>
+      </div>
+    );
+  }
 
   const meta = METRICS[current.key];
   const values = current.points.map((p) => p.v);
@@ -46,22 +88,7 @@ export function ActivityChart({ series }: { series: Series[] }) {
 
   return (
     <div className="flex flex-col gap-3">
-      {series.length > 1 ? (
-        <div role="tablist" aria-label="Métrica del gráfico" className="grid gap-1 rounded-2xl bg-sunk p-1" style={{ gridTemplateColumns: `repeat(${series.length}, minmax(0, 1fr))` }}>
-          {series.map((s) => (
-            <button
-              key={s.key}
-              type="button"
-              role="tab"
-              aria-selected={s.key === current.key}
-              onClick={() => setKey(s.key)}
-              className={`h-10 rounded-xl text-[13px] font-bold ${s.key === current.key ? "bg-primary text-on-primary" : "text-ink-soft"}`}
-            >
-              {METRICS[s.key].label}
-            </button>
-          ))}
-        </div>
-      ) : null}
+      {tabList}
       <div className="flex items-baseline justify-between gap-3">
         <span className="text-base font-extrabold">{meta.summary(mean)}</span>
         <span className="text-xs text-muted">{range}</span>
