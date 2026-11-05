@@ -1,11 +1,15 @@
 import "server-only";
 import { createClient } from "@/lib/supabase/server";
 import { ACTIVITIES_STREAM } from "./run";
-import { historyFraction, RANGE_STREAMS } from "./streams";
+import { historyCalls, historyFraction, RANGE_STREAMS, weightedProgress } from "./streams";
+
+/** Six missed 30-minute runs: more than bad luck, so the app says sync has stopped (R-OPS-03). */
+const STOPPED_AFTER_MS = 3 * 3_600_000;
 
 export type SyncOverview = {
   lastSuccessAt: string | null;
   lastFailed: boolean;
+  stopped: boolean;
   activityCount: number;
   history: { complete: boolean; percent: number; reachedDay: string | null };
 };
@@ -26,23 +30,28 @@ export async function getSyncOverview(): Promise<SyncOverview> {
   const activities = byStream.get(ACTIVITIES_STREAM);
   const oldest: string | null = activities?.position ? (JSON.parse(activities.position).oldest ?? null) : null;
 
-  // Activities page from today backwards, so their share is the days already covered.
-  const fractions = [
-    activities?.backfill_completed_at ? 1 : oldest ? 1 - historyFraction(oldest, today) : 0,
-    ...RANGE_STREAMS.map(({ name }) => {
+  // Activities page from today backwards, so their share is the days already covered. Each one takes two calls.
+  const parts = [
+    {
+      calls: Math.max(1, (count ?? 0) * 2),
+      fraction: activities?.backfill_completed_at ? 1 : oldest ? 1 - historyFraction(oldest, today) : 0,
+    },
+    ...RANGE_STREAMS.map(({ name, maxDays }) => {
       const cursor = byStream.get(name);
-      return cursor?.backfill_completed_at ? 1 : historyFraction(cursor?.position ?? null, today);
+      return { calls: historyCalls(maxDays, today), fraction: cursor?.backfill_completed_at ? 1 : historyFraction(cursor?.position ?? null, today) };
     }),
   ];
-  const complete = fractions.every((fraction) => fraction === 1);
+  const complete = parts.every((part) => part.fraction === 1);
+  const lastSuccessAt = lastSuccess?.finished_at ?? null;
 
   return {
-    lastSuccessAt: lastSuccess?.finished_at ?? null,
+    lastSuccessAt,
     lastFailed: latest?.status === "failed",
+    stopped: lastSuccessAt !== null && Date.now() - Date.parse(lastSuccessAt) > STOPPED_AFTER_MS,
     activityCount: count ?? 0,
     history: {
       complete,
-      percent: complete ? 100 : Math.min(99, Math.floor((fractions.reduce((sum, f) => sum + f, 0) / fractions.length) * 100)),
+      percent: complete ? 100 : Math.min(99, Math.floor(weightedProgress(parts) * 100)),
       reachedDay: activities?.backfill_completed_at ? null : oldest,
     },
   };

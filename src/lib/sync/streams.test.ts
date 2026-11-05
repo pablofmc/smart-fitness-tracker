@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, historyFraction, RANGE_STREAMS, windowEnd, windowStart } from "./streams";
+import { addDays, historyCalls, historyFraction, RANGE_STREAMS, weightedProgress, windowEnd, windowStart } from "./streams";
 
 describe("windowStart", () => {
   it("puts every day of a window on the same key", () => {
@@ -39,5 +39,19 @@ describe("historyFraction", () => {
     expect(historyFraction(null, "2026-11-02")).toBe(0);
     expect(historyFraction("2022-11-01", "2026-11-02")).toBe(0);
     expect(historyFraction("2026-11-02", "2026-11-02")).toBe(1);
+  });
+});
+
+describe("historyCalls", () => {
+  it("counts the windows a stream needs", () => {
+    expect(historyCalls(1, "2022-11-11")).toBe(10);
+    expect(historyCalls(4, "2022-11-11")).toBe(3);
+  });
+});
+
+describe("weightedProgress", () => {
+  it("weighs each stream by its calls, so finished cheap streams don't inflate it", () => {
+    expect(weightedProgress([{ calls: 1, fraction: 1 }, { calls: 9, fraction: 0 }])).toBeCloseTo(0.1);
+    expect(weightedProgress([])).toBe(1);
   });
 });
