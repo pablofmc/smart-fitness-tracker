@@ -5,17 +5,19 @@ import { createClient } from "@/lib/supabase/server";
 import { getSyncOverview } from "@/lib/sync/overview";
 import { GarminSection } from "./garmin-section";
 import { HrSection } from "./hr-section";
+import { TagsSection } from "./tags-section";
 import { signOut } from "@/app/login/actions";
 
 export const metadata: Metadata = { title: "Ajustes" };
 
 export default async function AjustesPage() {
   const supabase = await createClient();
-  const [{ data }, garminStatus, sync, { data: hr }] = await Promise.all([
+  const [{ data }, garminStatus, sync, { data: hr }, { data: tags }] = await Promise.all([
     supabase.auth.getClaims(),
     getGarminKeyStatus(),
     getSyncOverview(),
     supabase.from("hr_settings").select("effective_from, max_hr, resting_hr, lthr, source").order("effective_from", { ascending: false }),
+    supabase.from("checkin_tags").select("name").order("created_at"),
   ]);
   const versions = (hr ?? []).map((v) => ({ effectiveFrom: v.effective_from, maxHr: v.max_hr, restingHr: v.resting_hr, lthr: v.lthr, source: v.source }));
 
@@ -31,6 +33,8 @@ export default async function AjustesPage() {
       <GarminSection status={garminStatus} sync={sync} />
 
       <HrSection key={versions[0]?.effectiveFrom ?? "none"} versions={versions} />
+
+      <TagsSection tags={(tags ?? []).map((t) => t.name)} />
 
       <section className="flex items-center justify-between gap-3 rounded-3xl bg-card p-[18px]">
         <div className="flex min-w-0 flex-col gap-0.5">

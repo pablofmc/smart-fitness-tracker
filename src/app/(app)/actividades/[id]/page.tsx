@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ActivityChart } from "@/components/activity-chart";
 import { chartSeries, decodeActivityZip, lapRows, missingCharts, RUN_CHARTS, type LapRow } from "@/lib/activities/fit";
 import { formatDuration, formatKm, sportGroup, sportsInGroup } from "@/lib/activities/list";
+import { activityVerdict } from "@/lib/metrics/verdict";
 import { createClient } from "@/lib/supabase/server";
 
 export const metadata: Metadata = { title: "Actividad" };
@@ -65,12 +66,12 @@ export default async function ActivityPage({ params }: { params: Promise<{ id: s
     readFit(db, fitFile?.storage_path),
     db
       .from("activities")
-      .select("id, distance_m, duration_s")
+      .select("id, distance_m, duration_s, activity_loads(trimp)")
       .in("sport", sportsInGroup(activity.sport))
       .lte("local_day", activity.local_day)
       .order("local_day", { ascending: false })
       .order("id", { ascending: false })
-      .limit(8),
+      .limit(21),
   ]);
 
   const series = fit ? chartSeries(fit.records, { speedAsPace: !usesSpeed }) : [];
@@ -101,7 +102,12 @@ export default async function ActivityPage({ params }: { params: Promise<{ id: s
 
   // Compare by distance when the activity has one, otherwise by time.
   const byDistance = Boolean(activity.distance_m);
-  const history = [...(others ?? [])].reverse().map((other) => ({ id: other.id, value: (byDistance ? other.distance_m : other.duration_s) ?? 0 }));
+  const verdict = activityVerdict({
+    trimp: load?.trimp ?? null,
+    previous: (others ?? []).filter((o) => o.id !== activity.id && o.activity_loads?.trimp != null).slice(0, 20).map((o) => o.activity_loads!.trimp!),
+    group: group === "Otros" ? "este deporte" : group,
+  });
+  const history = [...(others ?? [])].slice(0, 8).reverse().map((other) => ({ id: other.id, value: (byDistance ? other.distance_m : other.duration_s) ?? 0 }));
   const peak = Math.max(1, ...history.map((h) => h.value));
 
   const hasHr = laps.some((lap) => lap.hr);
@@ -122,7 +128,8 @@ export default async function ActivityPage({ params }: { params: Promise<{ id: s
         <span className="text-[13px] font-semibold text-muted first-letter:uppercase">
           {day} · {group === "Otros" ? activity.sport.replaceAll("_", " ") : group}
         </span>
-        <h1 className="text-2xl leading-tight font-extrabold">{activity.name ?? group}</h1>
+        <h1 className="text-2xl leading-tight font-extrabold">{verdict?.sentence ?? activity.name ?? group}</h1>
+        {verdict ? <span className="text-sm font-semibold text-ink-soft">{activity.name ?? group}</span> : null}
         <dl className="grid grid-cols-3 gap-x-2.5 gap-y-3.5 pt-1">
           {stats.map((stat) => (
             <div key={stat.l} className="flex flex-col-reverse gap-px">
@@ -132,6 +139,17 @@ export default async function ActivityPage({ params }: { params: Promise<{ id: s
           ))}
         </dl>
         {load?.unavailable_reason ? <span className="text-xs text-muted">Sin TRIMP: {load.unavailable_reason.toLowerCase()}.</span> : null}
+        {verdict ? (
+          <details>
+            <summary className="w-fit cursor-pointer text-[13px] font-bold text-accent">Por qué</summary>
+            <div className="mt-1.5 flex flex-col gap-0.5 text-[13px] text-muted">
+              <span className="font-bold">Regla {verdict.rule}</span>
+              {verdict.inputs.map((input) => (
+                <span key={input}>{input}</span>
+              ))}
+            </div>
+          </details>
+        ) : null}
       </section>
 
       {series.length ? (
