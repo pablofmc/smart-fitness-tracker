@@ -205,6 +205,60 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"shoe_models": {
+                  Row: {
+                    "brand": string,"created_at": string,"id": number,"model": string,"run_types": (string)[],"version": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "brand": string,"created_at"?: string,"id"?: never,"model": string,"run_types": (string)[],"version"?: string | null
+                  }
+                  Update: {
+                    "brand"?: string,"created_at"?: string,"id"?: never,"model"?: string,"run_types"?: (string)[],"version"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"shoe_runs": {
+                  Row: {
+                    "activity_id": number,"shoe_id": number | null,"source": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "activity_id": number,"shoe_id"?: number | null,"source": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "activity_id"?: number,"shoe_id"?: number | null,"source"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "shoe_runs_shoe_id_fkey"
+      columns: ["shoe_id"]
+isOneToOne: false
+      referencedRelation: "shoe_totals"
+      referencedColumns: ["shoe_id"]
+    },{
+      foreignKeyName: "shoe_runs_shoe_id_fkey"
+      columns: ["shoe_id"]
+isOneToOne: false
+      referencedRelation: "shoes"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"shoes": {
+                  Row: {
+                    "brand": string,"catalog_image": string | null,"created_at": string,"id": number,"initial_km": number,"is_default": boolean,"limit_km": number,"model": string,"photo_path": string | null,"retired_on": string | null,"run_types": (string)[],"started_on": string,"version": string | null,"warning_hidden_until": string | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "brand": string,"catalog_image"?: string | null,"created_at"?: string,"id"?: never,"initial_km"?: number,"is_default"?: boolean,"limit_km"?: number,"model": string,"photo_path"?: string | null,"retired_on"?: string | null,"run_types": (string)[],"started_on": string,"version"?: string | null,"warning_hidden_until"?: string | null
+                  }
+                  Update: {
+                    "brand"?: string,"catalog_image"?: string | null,"created_at"?: string,"id"?: never,"initial_km"?: number,"is_default"?: boolean,"limit_km"?: number,"model"?: string,"photo_path"?: string | null,"retired_on"?: string | null,"run_types"?: (string)[],"started_on"?: string,"version"?: string | null,"warning_hidden_until"?: string | null
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"strength_sessions": {
                   Row: {
                     "active_s": number,"activity_id": number,"computed_at": string,"exercises": NonNullable<Json>,"formula_version": number,"group_sets": NonNullable<Json>,"total_reps": number,"total_sets": number,"unknown_sets": number
@@ -256,7 +310,15 @@ isOneToOne: true
                 }
           }
           Views: {
-            [_ in never]: never
+            "shoe_totals": {
+                  Row: {
+                    "km": number | null,"runs": number | null,"shoe_id": number
+                  }
+                  ComputedFields: never
+                  Relationships: [
+                    
+                  ]
+                }
           }
           Functions: {
             [_ in never]: never
