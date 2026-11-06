@@ -7,6 +7,7 @@ import { formatDuration, formatKm, sportGroup, sportsInGroup } from "@/lib/activ
 import { activityVerdict } from "@/lib/metrics/verdict";
 import { createClient } from "@/lib/supabase/server";
 import { RunShoe } from "@/modules/gear/run-shoe";
+import { LoggedBlock } from "@/modules/workouts/logged-block";
 import { RunSection } from "@/modules/running/run-section";
 import { StrengthSection } from "@/modules/strength/strength-section";
 
@@ -179,6 +180,8 @@ export default async function ActivityPage({ params }: { params: Promise<{ id: s
       ) : fitFile ? (
         <p className="rounded-[20px] bg-card px-[18px] py-4 text-sm text-muted">Esta actividad no grabó datos por segundo, así que no hay gráficos.</p>
       ) : null}
+
+      {group === "Fuerza" ? <LoggedBlock activityId={activity.id} /> : null}
 
       {SportModule ? <SportModule activityId={activity.id} /> : null}
 

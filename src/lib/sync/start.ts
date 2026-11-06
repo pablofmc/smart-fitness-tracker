@@ -8,6 +8,7 @@ import { createGarminClient, GarminBlockedError, GarminRequestError, GarminUnava
 import { markGarminKeyBlocked, readUsableGarminKey } from "@/lib/garmin/key";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assignPendingRuns } from "@/modules/gear/assign-store";
+import { linkPendingSessions } from "@/modules/workouts/link-store";
 import { runSync } from "./run";
 import { createSyncStore } from "./store";
 
@@ -63,6 +64,7 @@ export async function startSync(trigger: "scheduled" | "manual", budgetMs: numbe
     await computePendingStrength(Math.max(0, parseUntil - Date.now())).catch((caught) => failures.push(`Computing strength sessions: ${describe(caught)}`));
     // After parsing, so a run fetched in this sync gets its shoe in the same run.
     await assignPendingRuns().catch((caught) => failures.push(`Assigning shoes: ${describe(caught)}`));
+    await linkPendingSessions().catch((caught) => failures.push(`Linking logged sessions: ${describe(caught)}`));
     const failed = failures.length > 0;
     await finish(failed ? "failed" : "succeeded", result.itemsFetched, failed ? failures.join("; ").slice(0, 500) : null);
     return failed ? "failed" : "finished";
