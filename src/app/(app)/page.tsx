@@ -15,6 +15,7 @@ import { createClient } from "@/lib/supabase/server";
 import { addDays } from "@/lib/sync/streams";
 import { getSyncOverview } from "@/lib/sync/overview";
 import { ownerToday } from "@/lib/today";
+import { ShoeWarnings } from "@/modules/gear/today-warning";
 
 const WHOLE = new Intl.NumberFormat("es", { maximumFractionDigits: 0 });
 const SIGNED = new Intl.NumberFormat("es", { maximumFractionDigits: 0, signDisplay: "exceptZero" });
@@ -107,6 +108,7 @@ export default async function HoyPage() {
     <div className="flex flex-col gap-3.5">
       <TodayHeader syncLabel={syncLabel} />
       <SyncNotice keyStatus={key} lastFailed={sync.lastFailed} stopped={sync.stopped} history={sync.history} activityCount={sync.activityCount} />
+      <ShoeWarnings today={today} />
 
       <section className="flex flex-col gap-3.5 rounded-3xl bg-hero px-5 py-[22px] text-on-hero">
         <h1 className="text-[26px] leading-tight font-extrabold">{verdict.sentence}</h1>
