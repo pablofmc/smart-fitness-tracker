@@ -6,7 +6,7 @@ import { bestEffort, BEST_EFFORT_METRES, cardiacDrift, countsForRecords, default
 import { createAdminClient } from "@/lib/supabase/admin";
 import { readHrSettings } from "./store";
 
-const RUN_SPORTS = ["running", "treadmill_running", "trail_running", "track_running", "indoor_running"];
+export const RUN_SPORTS = ["running", "treadmill_running", "trail_running", "track_running", "indoor_running"];
 
 type Record = FitRecord & { distance?: number; positionLat?: number };
 

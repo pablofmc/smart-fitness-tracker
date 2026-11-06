@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 const TABS = [
   { href: "/", label: "Hoy", icon: "M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z" },
   { href: "/actividades", label: "Actividad", icon: "M3 12h4l3-8 4 16 3-8h4" },
+  { href: "/equipo", label: "Equipo", icon: "M2 18v-4c0-3 1-6 3-7l3 2 3-3c2 3 6 5 10 6a2 2 0 0 1 1 2v4zM2 18h20M10 9l2 2" },
   { href: "/tendencias", label: "Tendencias", icon: "M3 17l6-6 4 4 8-8M15 7h6v6" },
   {
     href: "/correlaciones",
@@ -28,7 +29,7 @@ export function Nav() {
       aria-label="Secciones"
       className="fixed inset-x-0 bottom-0 z-10 border-t border-nav-line bg-nav pb-[env(safe-area-inset-bottom)] md:inset-y-0 md:left-0 md:right-auto md:w-56 md:border-t-0 md:border-r md:px-3 md:pt-6"
     >
-      <ul className="grid grid-cols-5 gap-1 px-3 pt-2 pb-3.5 md:flex md:flex-col md:p-0">
+      <ul className="grid grid-cols-6 gap-0.5 px-2 pt-2 pb-3.5 md:flex md:flex-col md:p-0">
         {TABS.map((tab) => {
           const active = isActive(pathname, tab.href);
           return (
@@ -36,7 +37,7 @@ export function Nav() {
               <Link
                 href={tab.href}
                 aria-current={active ? "page" : undefined}
-                className={`flex h-[52px] flex-col items-center justify-center gap-[3px] rounded-2xl text-[11px] font-bold outline-primary focus-visible:outline-2 md:h-11 md:flex-row md:justify-start md:gap-3 md:px-3 md:text-sm ${
+                className={`flex h-[52px] flex-col items-center justify-center gap-[3px] rounded-2xl text-[10px] font-bold outline-primary focus-visible:outline-2 md:h-11 md:flex-row md:justify-start md:gap-3 md:px-3 md:text-sm ${
                   active ? "bg-nav-on text-on-nav-on" : "text-muted hover:text-ink"
                 }`}
               >

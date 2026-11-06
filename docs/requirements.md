@@ -59,10 +59,13 @@ Smart Fitness Tracker: a personal web app that pulls my own Garmin data (Persona
 | ID | Pri | Requirement | Acceptance |
 |---|---|---|---|
 | R-STR-06 | MUST | Sets, reps and time per exercise and per muscle group, from what the watch detects. | Sets with an unknown exercise count as "sin clasificar". |
-| R-STR-01 | LATER | Volume (sets × reps × weight) per exercise and per muscle group. Garmin has no weights for my sessions (`docs/garmin-api.md`), and I don't aim for a strength-specialist app. | — |
-| R-STR-02 | LATER | Estimated 1RM per exercise and its trend. Needs weights (see R-STR-01). | — |
-| R-STR-03 | LATER | Personal records per exercise. Needs weights (see R-STR-01). | — |
+| R-STR-01 | SHOULD | Volume (sets × reps × weight) per exercise and per muscle group, from the sets I log (R-STR-08). Garmin has no weights for my sessions (`docs/garmin-api.md`). | Sessions without logged sets show no volume, never zero. |
+| R-STR-02 | SHOULD | Estimated 1RM per exercise and its trend, from the sets I log. | Uses the Epley rule in the fitness-metrics skill. |
+| R-STR-03 | SHOULD | Personal records per exercise, from the sets I log. | A new best weight or estimated 1RM is marked as a record. |
 | R-STR-04 | MUST | Training frequency per muscle group. | Sets with an unknown exercise count as "sin clasificar" until corrected. |
+| R-STR-07 | SHOULD | A library of my routines: each has a name, an uploaded image or PDF, and an ordered exercise list. On upload, AI proposes the list (ADR-0006), which I review before saving; I can also type it by hand. | Nothing proposed by AI is saved without my review; a failed read still saves the routine. |
+| R-STR-08 | SHOULD | Log a strength session as I train: start it from a routine ("hoy hago esta rutina") or empty, and record weight (kg) and reps for each set, prefilled from the last time I did that exercise. Sets save on each tap and survive having no signal. | A set logged offline is uploaded when the signal comes back, and the screen shows how many are waiting. |
+| R-STR-09 | SHOULD | A logged session links to the Garmin strength activity of the same day and overlapping time, and the activity detail shows my logged sets next to what the watch detected, without merging them. | With two candidate activities, I pick one. |
 | R-STR-05 | SHOULD | Edit a strength session's sets in the app (exercise, reps). Corrections never overwrite the raw data. | An edited set changes the analysis; the raw .FIT is untouched. |
 
 ## Training load (LOAD)
@@ -99,6 +102,17 @@ Smart Fitness Tracker: a personal web app that pulls my own Garmin data (Persona
 |---|---|---|---|
 | R-CHK-01 | SHOULD | A 10-second daily check-in: how I feel (1–5), predefined tags (alcohol, late caffeine, sick, travel, work stress) plus my own tags, weight, a note. | Doable one-handed on the phone in about 10 seconds. |
 
+## Gear (GEAR)
+
+Garmin's gear is not on the Personal tier (`docs/garmin-api.md`), so shoes are registered in the app. Running shoes only.
+
+| ID | Pri | Requirement | Acceptance |
+|---|---|---|---|
+| R-GEAR-01 | MUST | Register running shoes by searching a curated catalog of current models from Nike, Adidas, Asics, Hoka, Saucony, New Balance and On, plus up to two previous versions of each, since I don't always buy the latest. Each model carries one or two run types (daily, long run, tempo, race, stability, trail) and a short note on what it's for. A model missing from the catalog is typed by hand and kept in my own list. | Search suggests "brand + model"; with no match it offers manual entry, and that model shows up in later searches. |
+| R-GEAR-02 | SHOULD | Each shoe shows a reference image, copied once from the brand's site into the public `gear-catalog` Storage bucket because some brands block hotlinking, and replaced by my own photo when I upload one. | A broken link or a model without image shows a generic shoe drawing. |
+| R-GEAR-03 | MUST | A default shoe takes every new run that sync brings in. A run's shoe can be changed from its detail. Runs from before a shoe was registered are left alone. | A new run lands on the default shoe; changing it in the detail moves its km to the other shoe. |
+| R-GEAR-04 | MUST | Each shoe's distance is its initial km plus its assigned runs, shown against its limit (700 km by default, editable), with a warning at 90 % in Equipo and in Hoy. Retiring a shoe moves it to a history with its final km. | The warning appears at 90 % of the limit; a retired shoe takes no new runs. |
+
 ## Goals (GOAL)
 
 | ID | Pri | Requirement | Acceptance |
@@ -128,7 +142,7 @@ Smart Fitness Tracker: a personal web app that pulls my own Garmin data (Persona
 
 | ID | Pri | Requirement | Acceptance |
 |---|---|---|---|
-| R-OPS-01 | MUST | Runs at $0 on free tiers. | — |
+| R-OPS-01 | MUST | Runs at $0 on free tiers. The one approved exception is reading routines with AI (ADR-0006). | — |
 | R-OPS-02 | MUST | If anything would require a paid tier, stop and tell me before paying. Record the decision as an ADR. | No paid plan is ever enabled without my explicit yes. |
 | R-OPS-03 | MUST | The scheduled sync keeps the backend from being paused for inactivity, or the app handles a paused backend gracefully. | 🔍 Supabase free projects pause after 7 days of inactivity. |
 

@@ -6,6 +6,7 @@ import { chartSeries, decodeActivityZip, lapRows, missingCharts, RUN_CHARTS, typ
 import { formatDuration, formatKm, sportGroup, sportsInGroup } from "@/lib/activities/list";
 import { activityVerdict } from "@/lib/metrics/verdict";
 import { createClient } from "@/lib/supabase/server";
+import { RunShoe } from "@/modules/gear/run-shoe";
 import { RunSection } from "@/modules/running/run-section";
 import { StrengthSection } from "@/modules/strength/strength-section";
 
@@ -157,6 +158,8 @@ export default async function ActivityPage({ params }: { params: Promise<{ id: s
           </details>
         ) : null}
       </section>
+
+      {group === "Correr" ? <RunShoe activityId={activity.id} distanceM={activity.distance_m} /> : null}
 
       {series.length ? (
         <section className="flex flex-col gap-3 rounded-3xl bg-card p-4">
