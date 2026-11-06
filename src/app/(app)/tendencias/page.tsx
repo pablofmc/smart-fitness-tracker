@@ -6,6 +6,7 @@ import type { Scale } from "@/lib/metrics/trend";
 import { ownerToday } from "@/lib/today";
 import { RunningTrends } from "@/modules/running/trends";
 import { StrengthTrends } from "@/modules/strength/trends";
+import { LoggedStrengthTrends } from "@/modules/workouts/trends";
 import { periodStart, pickPeriod, PERIODS } from "@/lib/activities/list";
 import { weeklyLoad, type LoadedActivity } from "@/lib/load/weekly";
 import { dailyLoads, formCurve } from "@/lib/metrics/form";
@@ -36,11 +37,46 @@ async function readLoads(): Promise<LoadedActivity[]> {
   }
 }
 
-export default async function TendenciasPage({ searchParams }: { searchParams: Promise<{ periodo?: string; metrica?: string; escala?: string }> }) {
+function ViewTabs({ current }: { current: "carga" | "fuerza" }) {
+  const tabs = [
+    { key: "carga", href: "/tendencias", label: "Carga y carrera" },
+    { key: "fuerza", href: "/tendencias?vista=fuerza", label: "Fuerza" },
+  ] as const;
+  return (
+    <nav aria-label="Vista" className="flex gap-2">
+      {tabs.map((tab) => (
+        <Link
+          key={tab.key}
+          href={tab.href}
+          aria-current={tab.key === current ? "page" : undefined}
+          className={`flex h-10 items-center rounded-full px-4 text-sm ${tab.key === current ? "bg-primary font-extrabold text-on-primary" : "bg-card font-bold text-ink-soft"}`}
+        >
+          {tab.label}
+        </Link>
+      ))}
+    </nav>
+  );
+}
+
+export default async function TendenciasPage({ searchParams }: { searchParams: Promise<{ periodo?: string; metrica?: string; escala?: string; vista?: string; ejercicio?: string }> }) {
   const params = await searchParams;
   const period = pickPeriod(params.periodo ?? "3m");
   const scale: Scale = params.escala === "meses" || params.escala === "años" ? params.escala : "semanas";
   const today = await ownerToday();
+
+  // Strength: what the watch detects (sets, groups, frequency) and what I log (volume, 1RM, records).
+  if (params.vista === "fuerza") {
+    const from = periodStart(period, today) ?? "2000-01-01";
+    return (
+      <div className="flex flex-col gap-3.5">
+        <h1 className="text-[28px] font-extrabold">Tendencias</h1>
+        <ViewTabs current="fuerza" />
+        <LoggedStrengthTrends today={today} exercise={params.ejercicio} href={(id) => `/tendencias?${new URLSearchParams({ vista: "fuerza", ejercicio: id })}`} />
+        <StrengthTrends from={from} today={today} />
+      </div>
+    );
+  }
+
   const href = (next: { periodo?: string; metrica?: string; escala?: string }) =>
     `/tendencias?${new URLSearchParams({ periodo: next.periodo ?? period.key, metrica: next.metrica ?? params.metrica ?? "sleep", escala: next.escala ?? scale })}`;
   const activities = await readLoads();
@@ -58,6 +94,7 @@ export default async function TendenciasPage({ searchParams }: { searchParams: P
   return (
     <div className="flex flex-col gap-3.5">
       <h1 className="text-[28px] font-extrabold">Tendencias</h1>
+      <ViewTabs current="carga" />
 
       <div role="group" aria-label="Periodo" className="grid grid-cols-4 gap-1 rounded-2xl bg-card p-1">
         {PERIODS.map((option) => (
@@ -153,8 +190,6 @@ export default async function TendenciasPage({ searchParams }: { searchParams: P
       <HealthTrends metricKey={params.metrica ?? "sleep"} scale={scale} from={from} href={href} />
 
       <RunningTrends from={from} today={today} />
-
-      <StrengthTrends from={from} today={today} />
     </div>
   );
 }
