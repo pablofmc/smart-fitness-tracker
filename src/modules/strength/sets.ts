@@ -56,7 +56,7 @@ const GROUP_OF: Record<string, (typeof MUSCLE_GROUPS)[number]> = {
   sled: "Cuerpo completo",
 };
 
-const NAMES: Record<string, string> = {
+export const EXERCISE_NAMES: Record<string, string> = {
   benchPress: "Press de banca",
   calfRaise: "Elevación de talones",
   cardio: "Cardio",
@@ -99,7 +99,7 @@ const NAMES: Record<string, string> = {
 };
 
 export const groupOf = (category: string): GroupName => GROUP_OF[category] ?? UNCLASSIFIED;
-export const exerciseName = (category: string) => (category === "unknown" ? UNCLASSIFIED : (NAMES[category] ?? "Otro ejercicio"));
+export const exerciseName = (category: string) => (category === "unknown" ? UNCLASSIFIED : (EXERCISE_NAMES[category] ?? "Otro ejercicio"));
 
 export type ExerciseTotal = { category: string; sets: number; reps: number; seconds: number };
 

@@ -39,3 +39,12 @@ export async function shrinkPhoto(file: File, { target = PHOTO_TARGET_BYTES, ste
 const toBlob = (canvas: HTMLCanvasElement, type: string, quality: number) =>
   new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, type, quality));
 
+/** A routine photo must stay legible for the AI and on the phone: larger sides, gentler quality (#50). */
+export const ROUTINE_SHRINK = {
+  target: 2 * 1024 * 1024,
+  steps: [
+    { side: 2400, quality: 0.85 },
+    { side: 2000, quality: 0.8 },
+    { side: 1600, quality: 0.75 },
+  ],
+};
