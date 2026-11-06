@@ -42,9 +42,13 @@ Daily load = the sum of TRIMP over all activities of that day, all sports togeth
 
 Both start at 0 on the first day of data. The per-sport breakdown splits daily load by sport; CTL/ATL always use the total.
 
-## Estimated 1RM (R-STR-02, R-STR-03: LATER, don't build yet)
+## Strength from logged sets (R-STR-01, R-STR-02, R-STR-03)
 
-Epley: 1RM = weight × (1 + reps / 30), only for sets with weight > 0 and 1–10 reps. A 1-rep set gives its own weight. The day's 1RM for an exercise is the one from its best set. Garmin has no weights for this user's sessions, so this needs a source of weights first.
+Only from the sets I log (R-STR-08); Garmin has no weights for this user's sessions. Code: `src/lib/metrics/strength.ts`.
+
+- **Volume** = kg × reps per set, summed per exercise, per muscle group and per week (Monday). A set without weight adds 0. A week with no logged sets has no volume, never zero.
+- **Estimated 1RM**, Epley: 1RM = weight × (1 + reps / 30), only for sets with weight > 0 and 1–10 reps. A 1-rep set gives its own weight. The day's 1RM for an exercise is the one from its best set.
+- **Records:** a set is a record when its weight, or its estimated 1RM, beats every earlier set of that exercise. Convention: the first set ever logged of an exercise only sets the baseline and is not marked.
 
 ## Personal baseline (R-HLT-02)
 

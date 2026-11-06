@@ -1,3 +1,4 @@
+import { ActivityTabs } from "@/components/activity-tabs";
 import type { Metadata } from "next";
 import Link from "next/link";
 import {
@@ -68,6 +69,7 @@ export default async function ActividadesPage({ searchParams }: { searchParams: 
 
   return (
     <div className="flex flex-col gap-3.5">
+      <ActivityTabs current="actividades" />
       <div className="flex items-baseline justify-between gap-3">
         <h1 className="text-[28px] font-extrabold">Actividades</h1>
         <span className="text-[13px] text-muted">{count(shown.length)}</span>

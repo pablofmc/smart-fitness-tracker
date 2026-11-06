@@ -17,7 +17,10 @@ const TABS = [
 ] as const;
 
 function isActive(pathname: string, href: string) {
-  return href === "/" ? pathname === "/" : pathname.startsWith(href);
+  if (href === "/") return pathname === "/";
+  // Routines live under the Actividad tab (canvas: C2-Rutinas).
+  if (href === "/actividades" && (pathname.startsWith("/rutinas") || pathname.startsWith("/sesion"))) return true;
+  return pathname.startsWith(href);
 }
 
 /** Bottom tab bar on phones, side menu from md up. */

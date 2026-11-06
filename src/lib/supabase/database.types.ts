@@ -165,6 +165,46 @@ isOneToOne: true
                   Relationships: [
                     
                   ]
+                },"logged_sessions": {
+                  Row: {
+                    "activity_id": number | null,"ended_at": string | null,"id": string,"link_source": string | null,"local_day": string,"name": string,"routine_id": number | null,"started_at": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "activity_id"?: number | null,"ended_at"?: string | null,"id": string,"link_source"?: string | null,"local_day": string,"name": string,"routine_id"?: number | null,"started_at": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "activity_id"?: number | null,"ended_at"?: string | null,"id"?: string,"link_source"?: string | null,"local_day"?: string,"name"?: string,"routine_id"?: number | null,"started_at"?: string,"updated_at"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "logged_sessions_routine_id_fkey"
+      columns: ["routine_id"]
+isOneToOne: false
+      referencedRelation: "routines"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"logged_sets": {
+                  Row: {
+                    "category": string | null,"exercise_name": string,"exercise_position": number,"id": string,"logged_at": string,"reps": number,"session_id": string,"set_number": number,"weight_kg": number
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "category"?: string | null,"exercise_name": string,"exercise_position": number,"id": string,"logged_at": string,"reps": number,"session_id": string,"set_number": number,"weight_kg": number
+                  }
+                  Update: {
+                    "category"?: string | null,"exercise_name"?: string,"exercise_position"?: number,"id"?: string,"logged_at"?: string,"reps"?: number,"session_id"?: string,"set_number"?: number,"weight_kg"?: number
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "logged_sets_session_id_fkey"
+      columns: ["session_id"]
+isOneToOne: false
+      referencedRelation: "logged_sessions"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"raw_files": {
                   Row: {
                     "content_type": string,"fetched_at": string,"id": number,"kind": string,"sha256": string,"size_bytes": number,"source_key": string,"storage_path": string
@@ -175,6 +215,60 @@ isOneToOne: true
                   }
                   Update: {
                     "content_type"?: string,"fetched_at"?: string,"id"?: never,"kind"?: string,"sha256"?: string,"size_bytes"?: number,"source_key"?: string,"storage_path"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
+                },"routine_exercises": {
+                  Row: {
+                    "category": string | null,"name": string,"position": number,"routine_id": number,"target_kg": number | null,"target_reps": string | null,"target_sets": number | null
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "category"?: string | null,"name": string,"position": number,"routine_id": number,"target_kg"?: number | null,"target_reps"?: string | null,"target_sets"?: number | null
+                  }
+                  Update: {
+                    "category"?: string | null,"name"?: string,"position"?: number,"routine_id"?: number,"target_kg"?: number | null,"target_reps"?: string | null,"target_sets"?: number | null
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "routine_exercises_routine_id_fkey"
+      columns: ["routine_id"]
+isOneToOne: false
+      referencedRelation: "routines"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"routine_reads": {
+                  Row: {
+                    "created_at": string,"id": number,"input_tokens": number | null,"output_tokens": number | null,"routine_id": number | null,"succeeded": boolean
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"id"?: never,"input_tokens"?: number | null,"output_tokens"?: number | null,"routine_id"?: number | null,"succeeded": boolean
+                  }
+                  Update: {
+                    "created_at"?: string,"id"?: never,"input_tokens"?: number | null,"output_tokens"?: number | null,"routine_id"?: number | null,"succeeded"?: boolean
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "routine_reads_routine_id_fkey"
+      columns: ["routine_id"]
+isOneToOne: false
+      referencedRelation: "routines"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"routines": {
+                  Row: {
+                    "created_at": string,"file_path": string | null,"file_type": string | null,"id": number,"name": string,"updated_at": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "created_at"?: string,"file_path"?: string | null,"file_type"?: string | null,"id"?: never,"name": string,"updated_at"?: string
+                  }
+                  Update: {
+                    "created_at"?: string,"file_path"?: string | null,"file_type"?: string | null,"id"?: never,"name"?: string,"updated_at"?: string
                   }
                   Relationships: [
                     
