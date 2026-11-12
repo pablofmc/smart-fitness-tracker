@@ -6,14 +6,18 @@ import type { ArchiveItem, SyncStore } from "./run";
 
 const BUCKET = "raw";
 
-/** JSON is gzipped to save quota (ADR-0003). A .FIT arrives zipped already, so it's stored as sent. */
-function encodeForStorage({ kind, sourceKey, bytes, format }: ArchiveItem) {
+/**
+ * JSON is gzipped to save quota (ADR-0003). A .FIT arrives zipped already, so it's stored as sent.
+ * New files go under the person's folder (ADR-0007).
+ */
+function encodeForStorage(userId: string, { kind, sourceKey, bytes, format }: ArchiveItem) {
   return format === "zip"
-    ? { path: `${kind}/${sourceKey}.zip`, body: bytes, contentType: "application/zip" }
-    : { path: `${kind}/${sourceKey}.json.gz`, body: gzipSync(bytes), contentType: "application/gzip" };
+    ? { path: `${userId}/${kind}/${sourceKey}.zip`, body: bytes, contentType: "application/zip" }
+    : { path: `${userId}/${kind}/${sourceKey}.json.gz`, body: gzipSync(bytes), contentType: "application/gzip" };
 }
 
-export function createSyncStore(): SyncStore {
+/** One person's cursors and raw archive. Every read and write is filtered by `userId` (ADR-0007). */
+export function createSyncStore(userId: string): SyncStore {
   const db = createAdminClient();
 
   return {
@@ -21,6 +25,7 @@ export function createSyncStore(): SyncStore {
       const { data, error } = await db
         .from("sync_cursors")
         .select("position, backfill_completed_at, updated_at")
+        .eq("user_id", userId)
         .eq("stream", stream)
         .maybeSingle();
       if (error) throw new Error(`Reading cursor ${stream}: ${error.message}`);
@@ -31,7 +36,7 @@ export function createSyncStore(): SyncStore {
       const now = new Date().toISOString();
       const { error } = await db
         .from("sync_cursors")
-        .upsert({ stream, position, backfill_completed_at: completed ? now : null, updated_at: now });
+        .upsert({ user_id: userId, stream, position, backfill_completed_at: completed ? now : null, updated_at: now });
       if (error) throw new Error(`Saving cursor ${stream}: ${error.message}`);
     },
 
@@ -39,6 +44,7 @@ export function createSyncStore(): SyncStore {
       const { count, error } = await db
         .from("raw_files")
         .select("id", { count: "exact", head: true })
+        .eq("user_id", userId)
         .eq("kind", kind)
         .eq("source_key", sourceKey);
       if (error) throw new Error(`Looking up ${kind}: ${error.message}`);
@@ -49,19 +55,24 @@ export function createSyncStore(): SyncStore {
       const sha256 = createHash("sha256").update(item.bytes).digest("hex");
       const { data: existing, error: lookupError } = await db
         .from("raw_files")
-        .select("sha256")
+        .select("sha256, storage_path")
+        .eq("user_id", userId)
         .eq("kind", item.kind)
         .eq("source_key", item.sourceKey)
         .maybeSingle();
       if (lookupError) throw new Error(`Looking up ${item.kind}: ${lookupError.message}`);
       if (existing?.sha256 === sha256) return false;
 
-      const { path, body, contentType } = encodeForStorage(item);
+      const encoded = encodeForStorage(userId, item);
+      const { body, contentType } = encoded;
+      // A changed payload overwrites its file in place, so files archived before ADR-0007 keep their path.
+      const path = existing?.storage_path ?? encoded.path;
       const upload = await db.storage.from(BUCKET).upload(path, body, { contentType, upsert: true });
       if (upload.error) throw new Error(`Uploading ${path}: ${upload.error.message}`);
 
       const { error } = await db.from("raw_files").upsert(
         {
+          user_id: userId,
           kind: item.kind,
           source_key: item.sourceKey,
           storage_path: path,
@@ -70,7 +81,7 @@ export function createSyncStore(): SyncStore {
           sha256,
           fetched_at: new Date().toISOString(),
         },
-        { onConflict: "kind,source_key" },
+        { onConflict: "user_id,kind,source_key" },
       );
       if (error) throw new Error(`Recording ${path}: ${error.message}`);
       return true;

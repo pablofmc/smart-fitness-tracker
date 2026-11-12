@@ -1,7 +1,7 @@
 import "server-only";
 import { gunzipSync } from "node:zlib";
 import { decodeActivityZip } from "@/lib/activities/fit";
-import { readAll } from "@/lib/activities/store";
+import { fitPaths, readAll } from "@/lib/activities/store";
 import { settingsFor, type HrSample, type HrSettings } from "@/lib/metrics/hr";
 import { trimp, TRIMP_FORMULA_VERSION } from "@/lib/metrics/trimp";
 import { timeInZones } from "@/lib/metrics/zones";
@@ -10,8 +10,9 @@ import { HISTORY_START } from "@/lib/sync/streams";
 
 type Db = ReturnType<typeof createAdminClient>;
 
-export async function readHrSettings(db: Pick<Db, "from">): Promise<HrSettings[]> {
-  const { data, error } = await db.from("hr_settings").select("id, effective_from, max_hr, resting_hr, lthr").order("effective_from");
+/** One person's HR settings, oldest first. */
+export async function readHrSettings(db: Pick<Db, "from">, userId: string): Promise<HrSettings[]> {
+  const { data, error } = await db.from("hr_settings").select("id, effective_from, max_hr, resting_hr, lthr").eq("user_id", userId).order("effective_from");
   if (error) throw new Error(error.message);
   return data.map((row) => ({ id: row.id, effectiveFrom: row.effective_from, maxHr: row.max_hr, restingHr: row.resting_hr, lthr: row.lthr }));
 }
@@ -20,10 +21,10 @@ export async function readHrSettings(db: Pick<Db, "from">): Promise<HrSettings[]
  * With no settings yet, starts from the values Garmin uses for this account, effective from the start of
  * history, so every past activity gets a load. The owner replaces them in Ajustes.
  */
-async function seedFromGarmin(db: Db) {
-  const { count } = await db.from("hr_settings").select("id", { count: "exact", head: true });
+async function seedFromGarmin(db: Db, userId: string) {
+  const { count } = await db.from("hr_settings").select("id", { count: "exact", head: true }).eq("user_id", userId);
   if (count) return;
-  const { data: file } = await db.from("raw_files").select("storage_path").eq("kind", "heart_rate_zones").maybeSingle();
+  const { data: file } = await db.from("raw_files").select("storage_path").eq("user_id", userId).eq("kind", "heart_rate_zones").maybeSingle();
   if (!file) return;
   const { data } = await db.storage.from("raw").download(file.storage_path);
   if (!data) return;
@@ -32,7 +33,7 @@ async function seedFromGarmin(db: Db) {
   const pick = (list.find((z) => z?.sport === "DEFAULT") ?? list[0]) as Record<string, unknown> | undefined;
   const [maxHr, restingHr, lthr] = [pick?.maxHeartRateUsed, pick?.restingHeartRateUsed, pick?.lactateThresholdHeartRateUsed];
   if (typeof maxHr !== "number" || typeof restingHr !== "number" || typeof lthr !== "number") return;
-  await db.from("hr_settings").insert({ effective_from: HISTORY_START, max_hr: maxHr, resting_hr: restingHr, lthr, source: "garmin" });
+  await db.from("hr_settings").insert({ user_id: userId, effective_from: HISTORY_START, max_hr: maxHr, resting_hr: restingHr, lthr, source: "garmin" });
 }
 
 function hrSamples(zip: Uint8Array): HrSample[] {
@@ -48,15 +49,16 @@ function hrSamples(zip: Uint8Array): HrSample[] {
  * Computes TRIMP and time in zones for activities that have none, were computed with another formula
  * version, or now fall under different HR settings. Resumable within the budget, like the parsers.
  */
-export async function computePendingLoads(budgetMs: number) {
+export async function computePendingLoads(userId: string, budgetMs: number) {
   const db = createAdminClient();
   const deadline = Date.now() + budgetMs;
-  await seedFromGarmin(db);
+  await seedFromGarmin(db, userId);
 
-  const [versions, activities, loads] = await Promise.all([
-    readHrSettings(db),
-    readAll((from, to) => db.from("activities").select("id, local_day, avg_hr").order("id").range(from, to)),
-    readAll((from, to) => db.from("activity_loads").select("activity_id, hr_settings_id, formula_version").order("activity_id").range(from, to)),
+  const [versions, activities, loads, fits] = await Promise.all([
+    readHrSettings(db, userId),
+    readAll((from, to) => db.from("activities").select("id, local_day, avg_hr").eq("user_id", userId).order("id").range(from, to)),
+    readAll((from, to) => db.from("activity_loads").select("activity_id, hr_settings_id, formula_version").eq("user_id", userId).order("activity_id").range(from, to)),
+    fitPaths(db, userId),
   ]);
   const done = new Map(loads.map((l) => [l.activity_id, l]));
   const pending = activities.filter((a) => {
@@ -69,8 +71,9 @@ export async function computePendingLoads(budgetMs: number) {
     if (Date.now() >= deadline) break;
     const settings = settingsFor(activity.local_day, versions);
     let samples: HrSample[] = [];
-    if (activity.avg_hr !== null) {
-      const { data } = await db.storage.from("raw").download(`activity_fit/${activity.id}.zip`);
+    const fit = fits.get(activity.id);
+    if (activity.avg_hr !== null && fit) {
+      const { data } = await db.storage.from("raw").download(fit);
       if (data) {
         try {
           samples = hrSamples(new Uint8Array(await data.arrayBuffer()));
@@ -82,6 +85,7 @@ export async function computePendingLoads(budgetMs: number) {
     const load = trimp(samples, settings);
     const zones = timeInZones(samples, settings);
     const { error } = await db.from("activity_loads").upsert({
+      user_id: userId,
       activity_id: activity.id,
       hr_settings_id: settings?.id ?? null,
       formula_version: TRIMP_FORMULA_VERSION,

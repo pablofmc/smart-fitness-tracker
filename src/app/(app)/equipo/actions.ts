@@ -7,7 +7,7 @@ import { RUN_TYPES, shoeName } from "@/modules/gear/catalog";
 import { SHOE_CATALOG } from "@/modules/gear/catalog-data";
 import { RUN_SPORTS } from "@/lib/load/running";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireSession } from "@/lib/supabase/auth";
+import { requireUserId } from "@/lib/supabase/auth";
 import { addDays } from "@/lib/sync/streams";
 import { ownerToday } from "@/lib/today";
 
@@ -44,7 +44,7 @@ const shoeInput = z.discriminatedUnion("source", [
 
 /** Registers a shoe from the catalog or typed by hand, with an optional photo (R-GEAR-01, R-GEAR-02). */
 export async function addShoe(_prev: AddShoeState, form: FormData): Promise<AddShoeState> {
-  await requireSession();
+  const userId = await requireUserId();
   const parsed = shoeInput.safeParse({ ...Object.fromEntries(form), runTypes: form.getAll("runTypes") });
   if (!parsed.success) return { message: "Revisa el modelo, los km y la fecha." };
   const input = parsed.data;
@@ -69,17 +69,18 @@ export async function addShoe(_prev: AddShoeState, form: FormData): Promise<AddS
   const db = createAdminClient();
   let photoPath: string | null = null;
   if (hasPhoto) {
-    photoPath = `${crypto.randomUUID()}.${PHOTO_TYPES[photo.type as keyof typeof PHOTO_TYPES]}`;
+    photoPath = `${userId}/${crypto.randomUUID()}.${PHOTO_TYPES[photo.type as keyof typeof PHOTO_TYPES]}`;
     const { error } = await db.storage.from(PHOTO_BUCKET).upload(photoPath, photo, { contentType: photo.type });
     if (error) return { message: "No pudimos subir la foto." };
   }
 
   if (input.isDefault) {
-    const { error } = await db.from("shoes").update({ is_default: false }).eq("is_default", true);
+    const { error } = await db.from("shoes").update({ is_default: false }).eq("user_id", userId).eq("is_default", true);
     if (error) return { message: "No pudimos guardar la zapatilla." };
   }
   const { error } = await db.from("shoes").insert({
     ...model,
+    user_id: userId,
     photo_path: photoPath,
     started_on: input.startedOn,
     initial_km: input.initialKm,
@@ -94,7 +95,7 @@ export async function addShoe(_prev: AddShoeState, form: FormData): Promise<AddS
   if (input.source === "manual" && !model.catalog_image) {
     // Kept in my own list so later searches offer it (R-GEAR-01). A repeat hits the unique
     // index and is ignored: the shoe itself is already saved.
-    await db.from("shoe_models").insert({ brand: model.brand, model: model.model, version: model.version, run_types: model.run_types });
+    await db.from("shoe_models").insert({ user_id: userId, brand: model.brand, model: model.model, version: model.version, run_types: model.run_types });
   }
 
   revalidatePath("/equipo");
@@ -105,22 +106,22 @@ const runShoe = z.object({ activityId: z.number().int().positive(), shoeId: z.nu
 
 /** Moves a run to another shoe, or to none, from the run detail (R-GEAR-03). Its km move with it. */
 export async function setRunShoe(input: z.input<typeof runShoe>): Promise<{ message?: string }> {
-  await requireSession();
+  const userId = await requireUserId();
   const parsed = runShoe.safeParse(input);
   if (!parsed.success) return { message: "No pudimos cambiar la zapatilla." };
   const { activityId, shoeId } = parsed.data;
   const db = createAdminClient();
 
   const [{ data: run }, { data: shoe }] = await Promise.all([
-    db.from("activities").select("id").eq("id", activityId).in("sport", RUN_SPORTS).maybeSingle(),
-    shoeId === null ? Promise.resolve({ data: null }) : db.from("shoes").select("id, retired_on").eq("id", shoeId).maybeSingle(),
+    db.from("activities").select("id").eq("user_id", userId).eq("id", activityId).in("sport", RUN_SPORTS).maybeSingle(),
+    shoeId === null ? Promise.resolve({ data: null }) : db.from("shoes").select("id, retired_on").eq("user_id", userId).eq("id", shoeId).maybeSingle(),
   ]);
   if (!run) return { message: "Esa carrera no existe." };
   if (shoeId !== null && (!shoe || shoe.retired_on)) return { message: "Esa zapatilla está retirada o ya no existe." };
 
   const { error } = await db
     .from("shoe_runs")
-    .upsert({ activity_id: activityId, shoe_id: shoeId, source: "manual", updated_at: new Date().toISOString() });
+    .upsert({ user_id: userId, activity_id: activityId, shoe_id: shoeId, source: "manual", updated_at: new Date().toISOString() });
   if (error) return { message: "No pudimos cambiar la zapatilla." };
   revalidatePath(`/actividades/${activityId}`);
   revalidatePath("/equipo");
@@ -129,18 +130,19 @@ export async function setRunShoe(input: z.input<typeof runShoe>): Promise<{ mess
 
 const shoeId = z.number().int().positive();
 
-async function activeShoe(id: number) {
-  const { data } = await createAdminClient().from("shoes").select("id, retired_on").eq("id", id).maybeSingle();
+/** One of this person's shoes, if it exists and isn't retired. Another person's id reads as missing. */
+async function activeShoe(userId: string, id: number) {
+  const { data } = await createAdminClient().from("shoes").select("id, retired_on").eq("user_id", userId).eq("id", id).maybeSingle();
   return data && !data.retired_on ? data : null;
 }
 
 /** New runs from sync go to this shoe from now on (R-GEAR-03). */
 export async function makeDefaultShoe(id: number): Promise<{ message?: string }> {
-  await requireSession();
-  if (!shoeId.safeParse(id).success || !(await activeShoe(id))) return { message: "Esa zapatilla está retirada o ya no existe." };
+  const userId = await requireUserId();
+  if (!shoeId.safeParse(id).success || !(await activeShoe(userId, id))) return { message: "Esa zapatilla está retirada o ya no existe." };
   const db = createAdminClient();
-  const cleared = await db.from("shoes").update({ is_default: false }).eq("is_default", true);
-  const { error } = cleared.error ? cleared : await db.from("shoes").update({ is_default: true }).eq("id", id);
+  const cleared = await db.from("shoes").update({ is_default: false }).eq("user_id", userId).eq("is_default", true);
+  const { error } = cleared.error ? cleared : await db.from("shoes").update({ is_default: true }).eq("user_id", userId).eq("id", id);
   if (error) return { message: "No pudimos cambiar la predeterminada." };
   revalidatePath("/equipo");
   return {};
@@ -148,11 +150,12 @@ export async function makeDefaultShoe(id: number): Promise<{ message?: string }>
 
 /** Moves a shoe to the history with its final km; it takes no new runs (R-GEAR-04). */
 export async function retireShoe(id: number): Promise<{ message?: string }> {
-  await requireSession();
-  if (!shoeId.safeParse(id).success || !(await activeShoe(id))) return { message: "Esa zapatilla ya está retirada o no existe." };
+  const userId = await requireUserId();
+  if (!shoeId.safeParse(id).success || !(await activeShoe(userId, id))) return { message: "Esa zapatilla ya está retirada o no existe." };
   const { error } = await createAdminClient()
     .from("shoes")
     .update({ retired_on: await ownerToday(), is_default: false })
+    .eq("user_id", userId)
     .eq("id", id);
   if (error) return { message: "No pudimos retirar la zapatilla." };
   revalidatePath("/equipo");
@@ -162,11 +165,12 @@ export async function retireShoe(id: number): Promise<{ message?: string }> {
 
 /** "Ocultar 7 días": Hoy stops showing this shoe's warning for a week; Equipo keeps it. */
 export async function hideShoeWarning(id: number): Promise<{ message?: string }> {
-  await requireSession();
+  const userId = await requireUserId();
   if (!shoeId.safeParse(id).success) return { message: "No pudimos ocultar el aviso." };
   const { error } = await createAdminClient()
     .from("shoes")
     .update({ warning_hidden_until: addDays(await ownerToday(), 6) })
+    .eq("user_id", userId)
     .eq("id", id);
   if (error) return { message: "No pudimos ocultar el aviso." };
   revalidatePath("/");

@@ -29,4 +29,4 @@ The key lives server-side only: in the database behind RLS, or in an environment
 
 ## Scope
 
-The Personal tier is read-only and for one person (ADR-0001). Writing to Garmin (workouts, courses) is out of scope (R-WONT-01).
+The Personal tier is read-only, and each key reads only its holder's data: each person in the app uses their own key, and a sync run uses exactly one (ADR-0007). Writing to Garmin (workouts, courses) is out of scope (R-WONT-01).

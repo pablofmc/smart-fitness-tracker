@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { NoDataYet } from "@/components/onboarding";
 import { HEALTH_METRICS, metricByKey } from "@/lib/health/metrics";
 import { readMetric } from "@/lib/health/read";
 import type { DayValue } from "@/lib/metrics/baseline";
@@ -72,6 +73,7 @@ export default async function PatronesPage() {
         <h1 className="text-[28px] font-extrabold">Patrones</h1>
         <span className="text-sm text-muted">Qué se mueve junto en tus datos · {healthDays.toLocaleString("es")} días</span>
       </div>
+      <NoDataYet />
 
       <h2 className="mx-0.5 mt-1 text-[17px] font-extrabold">Análisis curados</h2>
       {results.map(({ pair, c }) => {

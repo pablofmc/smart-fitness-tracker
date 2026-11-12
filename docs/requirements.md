@@ -1,6 +1,6 @@
 # Requirements
 
-Smart Fitness Tracker: a personal web app that pulls my own Garmin data (Personal API tier) and turns it into a full dashboard with trends, training analysis and correlations. Single user: me.
+Smart Fitness Tracker: a personal web app that pulls my own Garmin data (Personal API tier) and turns it into a full dashboard with trends, training analysis and correlations. For me and, as a second invited user, my spouse; each of us sees only our own data (ADR-0007).
 
 **How to use this file**
 - Each requirement has a stable ID (`R-RUN-03`). Cite IDs in issues, commits, tests and skills. Never renumber; retire an ID by marking it `WON'T` with a reason.
@@ -134,9 +134,20 @@ Garmin's gear is not on the Personal tier (`docs/garmin-api.md`), so shoes are r
 
 | ID | Pri | Requirement | Acceptance |
 |---|---|---|---|
-| R-SEC-01 | MUST | Login required. Only my account exists; sign-ups are disabled. | A new visitor can't create an account or see any data. |
-| R-SEC-02 | MUST | Every table has RLS; nothing is readable without a session. | — |
+| R-SEC-01 | MUST | Login required. Only accounts I create exist (mine and my spouse's, R-USR-03); sign-ups are disabled. | A new visitor can't create an account or see any data. |
+| R-SEC-02 | MUST | Every table has RLS; nothing is readable without a session, and each row is readable only by its owner (ADR-0007). | — |
 | R-SEC-03 | MUST | The Garmin API key is stored server-side only, never sent to the browser or committed. | — |
+
+## Second user (USR)
+
+My spouse uses the same deployment with her own Garmin Personal key (ADR-0007).
+
+| ID | Pri | Requirement | Acceptance |
+|---|---|---|---|
+| R-USR-01 | MUST | Every row, file and computed value belongs to one person. Each of us sees only our own data, with our own baselines and history; nothing is shared or combined, except the curated shoe catalog. | Signed in as either person, no screen, action or file shows the other's data; a forged id from the other person is rejected. |
+| R-USR-02 | MUST | Each person pastes their own Garmin key in Ajustes and gets their own sync, history load, expiry warning (R-SYN-05), HR settings and time zone. One person's blocked key or rate limit never stops the other's sync. | Pasting her key starts her history load without changing my sync; blocking one key leaves the other syncing. |
+| R-USR-03 | MUST | I create her account with a script, using a temporary password. The app asks her to choose her own password, and Ajustes lets either of us change ours. A new account with no Garmin key sees how to connect it instead of empty screens. | The script's account signs in and is asked for a new password; after changing it, the old one stops working. |
+| R-USR-04 | MUST | AI routine reads (ADR-0006) are capped at 30 per person per calendar month. Ajustes shows each person's count against the cap. | The 31st read in a month is refused with a clear message, and the routine can still be typed by hand. |
 
 ## Cost and operations (OPS)
 
@@ -153,6 +164,6 @@ Garmin's gear is not on the Personal tier (`docs/garmin-api.md`), so shoes are r
 | R-LTR-01 | LATER | AI coach: questions in natural language and weekly summaries. Blocked on reading Garmin's Personal tier terms on AI use. |
 | R-LTR-02 | LATER | Notifications or emailed summaries. |
 | R-LTR-03 | LATER | Deep analysis for more sports (e.g. cycling power and FTP), as new modules (R-ACT-03). |
-| R-LTR-04 | LATER | A second, invited user (my spouse) with her own Garmin Personal key and her own data, invisible to me and mine to her. Blocked on reading Garmin's Personal tier terms on serving another person. Supersedes ADR-0001 and changes R-SEC-01 when built. |
+| R-LTR-04 | WON'T | Retired: the second user is now built as R-USR-01..04 (ADR-0007). |
 | R-WONT-01 | WON'T | Sending workouts or routes to the watch: the Personal tier is read-only. |
-| R-WONT-02 | WON'T | Open sign-ups or users beyond the invited household (R-LTR-04). |
+| R-WONT-02 | WON'T | Open sign-ups or users beyond the invited household (R-USR-01). |

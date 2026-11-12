@@ -5,12 +5,13 @@ import { computePendingRunMetrics } from "@/lib/load/running";
 import { computePendingLoads } from "@/lib/load/store";
 import { computePendingStrength } from "@/lib/load/strength";
 import { createGarminClient, GarminBlockedError, GarminRequestError, GarminUnavailableError } from "@/lib/garmin/client";
-import { markGarminKeyBlocked, readUsableGarminKey } from "@/lib/garmin/key";
+import { markGarminKeyBlocked, readUsableGarminKey, syncCandidates } from "@/lib/garmin/key";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { assignPendingRuns } from "@/modules/gear/assign-store";
 import { linkPendingSessions } from "@/modules/workouts/link-store";
 import { runSync } from "./run";
 import { createSyncStore } from "./store";
+import { nextUserToSync } from "./turn";
 
 /** Longer than Vercel Hobby's 300 s limit, so a "running" row this old can only be a killed run. */
 const STALE_RUN_MS = 6 * 60_000;
@@ -24,8 +25,13 @@ function describe(error: unknown) {
   return error instanceof Error ? error.name : "Unknown error";
 }
 
-/** Runs one logged sync. Callers must have checked the session or the shared secret first. */
-export async function startSync(trigger: "scheduled" | "manual", budgetMs: number): Promise<StartOutcome> {
+/**
+ * Runs one logged sync for one person (ADR-0007). A manual run syncs the person who asked; a scheduled
+ * run syncs whoever waited longest. Callers must have checked the session or the shared secret first.
+ */
+export async function startSync(trigger: "scheduled", budgetMs: number): Promise<StartOutcome>;
+export async function startSync(trigger: "manual", budgetMs: number, userId: string): Promise<StartOutcome>;
+export async function startSync(trigger: "scheduled" | "manual", budgetMs: number, requestedUserId?: string): Promise<StartOutcome> {
   const db = createAdminClient();
 
   const staleBefore = new Date(Date.now() - STALE_RUN_MS).toISOString();
@@ -35,13 +41,16 @@ export async function startSync(trigger: "scheduled" | "manual", budgetMs: numbe
     .eq("status", "running")
     .lt("started_at", staleBefore);
 
+  // One run at a time across everyone, so Garmin sees about one call per second whatever its limit is keyed on.
   const { count } = await db.from("sync_runs").select("id", { count: "exact", head: true }).eq("status", "running");
   if (count) return "already-running";
 
-  const apiKey = await readUsableGarminKey();
+  const userId = requestedUserId ?? nextUserToSync(await syncCandidates());
+  if (!userId) return "no-key";
+  const apiKey = await readUsableGarminKey(userId);
   if (!apiKey) return "no-key";
 
-  const { data: run, error } = await db.from("sync_runs").insert({ trigger }).select("id").single();
+  const { data: run, error } = await db.from("sync_runs").insert({ user_id: userId, trigger }).select("id").single();
   if (error) throw new Error("No pudimos registrar la sincronización.");
 
   const finish = (status: "succeeded" | "failed" | "blocked", items: number, message: string | null) =>
@@ -50,27 +59,27 @@ export async function startSync(trigger: "scheduled" | "manual", budgetMs: numbe
   try {
     const result = await runSync({
       garmin: createGarminClient({ apiKey }),
-      store: createSyncStore(),
+      store: createSyncStore(userId),
       today: new Date().toISOString().slice(0, 10),
       forceRecentHealth: trigger === "manual",
       budgetMs,
     });
     const failures = [...result.failures];
     const parseUntil = Date.now() + PARSE_BUDGET_MS;
-    await parsePendingActivities(PARSE_BUDGET_MS).catch((caught) => failures.push(`Parsing activities: ${describe(caught)}`));
-    await parsePendingHealth(Math.max(0, parseUntil - Date.now())).catch((caught) => failures.push(`Parsing health: ${describe(caught)}`));
-    await computePendingLoads(Math.max(0, parseUntil - Date.now())).catch((caught) => failures.push(`Computing loads: ${describe(caught)}`));
-    await computePendingRunMetrics(Math.max(0, parseUntil - Date.now())).catch((caught) => failures.push(`Computing run metrics: ${describe(caught)}`));
-    await computePendingStrength(Math.max(0, parseUntil - Date.now())).catch((caught) => failures.push(`Computing strength sessions: ${describe(caught)}`));
+    await parsePendingActivities(userId, PARSE_BUDGET_MS).catch((caught) => failures.push(`Parsing activities: ${describe(caught)}`));
+    await parsePendingHealth(userId, Math.max(0, parseUntil - Date.now())).catch((caught) => failures.push(`Parsing health: ${describe(caught)}`));
+    await computePendingLoads(userId, Math.max(0, parseUntil - Date.now())).catch((caught) => failures.push(`Computing loads: ${describe(caught)}`));
+    await computePendingRunMetrics(userId, Math.max(0, parseUntil - Date.now())).catch((caught) => failures.push(`Computing run metrics: ${describe(caught)}`));
+    await computePendingStrength(userId, Math.max(0, parseUntil - Date.now())).catch((caught) => failures.push(`Computing strength sessions: ${describe(caught)}`));
     // After parsing, so a run fetched in this sync gets its shoe in the same run.
-    await assignPendingRuns().catch((caught) => failures.push(`Assigning shoes: ${describe(caught)}`));
-    await linkPendingSessions().catch((caught) => failures.push(`Linking logged sessions: ${describe(caught)}`));
+    await assignPendingRuns(userId).catch((caught) => failures.push(`Assigning shoes: ${describe(caught)}`));
+    await linkPendingSessions(userId).catch((caught) => failures.push(`Linking logged sessions: ${describe(caught)}`));
     const failed = failures.length > 0;
     await finish(failed ? "failed" : "succeeded", result.itemsFetched, failed ? failures.join("; ").slice(0, 500) : null);
     return failed ? "failed" : "finished";
   } catch (caught) {
     if (caught instanceof GarminBlockedError) {
-      await markGarminKeyBlocked();
+      await markGarminKeyBlocked(userId);
       await finish("blocked", 0, describe(caught));
       return "blocked";
     }

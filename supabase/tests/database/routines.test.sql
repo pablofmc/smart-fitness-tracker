@@ -3,6 +3,9 @@ begin;
 create extension if not exists pgtap with schema extensions;
 select plan(12);
 
+-- Rows inserted below belong to the local owner (user_id defaults to auth.uid(), ADR-0007).
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","is_anonymous":false}';
+
 insert into public.routines (name) values ('Pierna y core');
 
 select throws_ok(
@@ -21,7 +24,7 @@ select throws_ok($$ select * from public.logged_sets $$, '42501', null, 'anon ca
 reset role;
 
 set local role authenticated;
-set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","is_anonymous":true}';
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","is_anonymous":true}';
 select is_empty($$ select 1 from public.routines $$, 'an anonymous session reads no routines');
 reset role;
 

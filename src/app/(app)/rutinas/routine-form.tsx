@@ -30,7 +30,7 @@ const field = "h-12 w-full rounded-xl border border-line bg-card px-3 text-base 
 const small = "h-11 w-full rounded-[10px] border border-line bg-card px-1 text-center text-[15px] font-semibold outline-primary focus-visible:outline-2";
 
 /** New or edited routine: file, optional AI read, then the exercise list to review (canvas: C2-Rutina-Nueva). */
-export function RoutineForm({ initial }: { initial?: InitialRoutine }) {
+export function RoutineForm({ initial, aiCapMessage = null }: { initial?: InitialRoutine; aiCapMessage?: string | null }) {
   const [state, dispatch, saving] = useActionState<SaveState, FormData>(saveRoutine, {});
   const [name, setName] = useState(initial?.name ?? "");
   const [chosen, setChosen] = useState<Chosen | null>(null);
@@ -153,12 +153,18 @@ export function RoutineForm({ initial }: { initial?: InitialRoutine }) {
 
       {step === "pick" && (
         <section className="flex flex-col gap-2.5">
-          <button type="button" onClick={readWithAi} disabled={!chosen || preparing} className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-primary text-[15px] font-extrabold text-on-primary disabled:bg-sunk disabled:text-muted">
-            <svg viewBox="0 0 24 24" aria-hidden className="size-5 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" />
-            </svg>
-            Leer ejercicios con IA
-          </button>
+          {aiCapMessage ? (
+            <p role="status" className="rounded-2xl bg-warn-bg px-4 py-3 text-sm leading-snug font-bold text-warn-text">
+              {aiCapMessage}
+            </p>
+          ) : (
+            <button type="button" onClick={readWithAi} disabled={!chosen || preparing} className="flex h-14 items-center justify-center gap-2 rounded-2xl bg-primary text-[15px] font-extrabold text-on-primary disabled:bg-sunk disabled:text-muted">
+              <svg viewBox="0 0 24 24" aria-hidden className="size-5 fill-none stroke-current" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8zM19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z" />
+              </svg>
+              Leer ejercicios con IA
+            </button>
+          )}
           <button
             type="button"
             onClick={() => {
@@ -169,7 +175,7 @@ export function RoutineForm({ initial }: { initial?: InitialRoutine }) {
           >
             Escribirlos a mano
           </button>
-          <span className="text-xs leading-snug text-muted">La IA propone la lista y tú la revisas antes de guardar. Cuesta menos de 0,1 centavo de dólar por rutina.</span>
+          {!aiCapMessage && <span className="text-xs leading-snug text-muted">La IA propone la lista y tú la revisas antes de guardar. Cuesta menos de 0,1 centavo de dólar por rutina.</span>}
         </section>
       )}
 
@@ -219,7 +225,7 @@ export function RoutineForm({ initial }: { initial?: InitialRoutine }) {
             + Ejercicio
           </button>
           <span className="text-xs text-muted">Series, reps y kg son opcionales: son la meta, no lo que hiciste.</span>
-          {!initial && chosen && !notice && (
+          {!initial && chosen && !notice && !aiCapMessage && (
             <button type="button" onClick={readWithAi} className="self-start text-[13px] font-bold text-accent">
               Leer con IA en vez de escribir
             </button>

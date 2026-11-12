@@ -20,6 +20,14 @@ export async function readAll<T>(page: (from: number, to: number) => PromiseLike
   }
 }
 
+/** Where each of one person's activity .FIT files is stored, by activity id. Older files have no person folder (ADR-0007). */
+export async function fitPaths(db: Pick<Db, "from">, userId: string) {
+  const rows = await readAll((from, to) =>
+    db.from("raw_files").select("source_key, storage_path").eq("user_id", userId).eq("kind", "activity_fit").order("id").range(from, to),
+  );
+  return new Map(rows.map((r) => [Number(r.source_key), r.storage_path]));
+}
+
 async function parseFile(db: Db, file: { id: number; storage_path: string; sha256: string }) {
   const { data, error } = await db.storage.from("raw").download(file.storage_path);
   if (error) throw new Error(`Downloading ${file.storage_path}: ${error.message}`);
@@ -31,13 +39,13 @@ async function parseFile(db: Db, file: { id: number; storage_path: string; sha25
  * Parses summaries that are new, changed in Garmin or read by an older parser, until the budget runs out.
  * The next sync carries on, so this also is the reprocess job: emptying the table rebuilds it (R-DAT-02).
  */
-export async function parsePendingActivities(budgetMs: number) {
+export async function parsePendingActivities(userId: string, budgetMs: number) {
   const db = createAdminClient();
   const deadline = Date.now() + budgetMs;
 
   const [files, parsed] = await Promise.all([
-    readAll((from, to) => db.from("raw_files").select("id, storage_path, sha256").eq("kind", "activity_summary").order("id").range(from, to)),
-    readAll((from, to) => db.from("activities").select("raw_file_id, raw_sha256, parser_version").order("id").range(from, to)),
+    readAll((from, to) => db.from("raw_files").select("id, storage_path, sha256").eq("user_id", userId).eq("kind", "activity_summary").order("id").range(from, to)),
+    readAll((from, to) => db.from("activities").select("raw_file_id, raw_sha256, parser_version").eq("user_id", userId).order("id").range(from, to)),
   ]);
   const current = new Set(parsed.filter((row) => row.parser_version === ACTIVITY_PARSER_VERSION).map((row) => `${row.raw_file_id}:${row.raw_sha256}`));
   const pending = files.filter((file) => !current.has(`${file.id}:${file.sha256}`));
@@ -47,7 +55,7 @@ export async function parsePendingActivities(budgetMs: number) {
     const batch = await Promise.all(pending.slice(index, index + BATCH_SIZE).map((file) => parseFile(db, file)));
     const rows = batch.filter((row) => row !== null);
     if (rows.length) {
-      const { error } = await db.from("activities").upsert(rows.map((row) => ({ ...row, data: row.data as { [key: string]: Json } })));
+      const { error } = await db.from("activities").upsert(rows.map((row) => ({ ...row, user_id: userId, data: row.data as { [key: string]: Json } })));
       if (error) throw new Error(`Saving activities: ${error.message}`);
     }
     done += batch.length;

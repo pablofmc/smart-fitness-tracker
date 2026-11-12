@@ -1,6 +1,6 @@
 import "server-only";
 import { decodeActivityZip, type FitRecord } from "@/lib/activities/fit";
-import { readAll } from "@/lib/activities/store";
+import { fitPaths, readAll } from "@/lib/activities/store";
 import { settingsFor } from "@/lib/metrics/hr";
 import { bestEffort, BEST_EFFORT_METRES, cardiacDrift, countsForRecords, defaultTargetHr, paceAtHr, RUNNING_FORMULA_VERSION, type RunSample } from "@/lib/metrics/running";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -24,13 +24,16 @@ export function runSamples(records: Record[]): RunSample[] {
 }
 
 /** The running module's values for runs that have none or are out of date. Same budget contract as the loads. */
-export async function computePendingRunMetrics(budgetMs: number) {
+export async function computePendingRunMetrics(userId: string, budgetMs: number) {
   const db = createAdminClient();
   const deadline = Date.now() + budgetMs;
-  const [versions, runs, done] = await Promise.all([
-    readHrSettings(db),
-    readAll((from, to) => db.from("activities").select("id, sport, local_day, data->averageRunningCadenceInStepsPerMinute").in("sport", RUN_SPORTS).order("id").range(from, to)),
-    readAll((from, to) => db.from("run_metrics").select("activity_id, hr_settings_id, formula_version").order("activity_id").range(from, to)),
+  const [versions, runs, done, fits] = await Promise.all([
+    readHrSettings(db, userId),
+    readAll((from, to) =>
+      db.from("activities").select("id, sport, local_day, data->averageRunningCadenceInStepsPerMinute").eq("user_id", userId).in("sport", RUN_SPORTS).order("id").range(from, to),
+    ),
+    readAll((from, to) => db.from("run_metrics").select("activity_id, hr_settings_id, formula_version").eq("user_id", userId).order("activity_id").range(from, to)),
+    fitPaths(db, userId),
   ]);
   const current = new Map(done.map((d) => [d.activity_id, d]));
   const pending = runs.filter((r) => {
@@ -42,7 +45,8 @@ export async function computePendingRunMetrics(budgetMs: number) {
   for (const run of pending) {
     if (Date.now() >= deadline) break;
     const settings = settingsFor(run.local_day, versions);
-    const { data } = await db.storage.from("raw").download(`activity_fit/${run.id}.zip`);
+    const fit = fits.get(run.id);
+    const { data } = fit ? await db.storage.from("raw").download(fit) : { data: null };
     let samples: RunSample[] = [];
     let laps: { distance: number; seconds: number }[] = [];
     if (data) {
@@ -62,6 +66,7 @@ export async function computePendingRunMetrics(budgetMs: number) {
     const cadence = typeof run.averageRunningCadenceInStepsPerMinute === "number" ? run.averageRunningCadenceInStepsPerMinute : null;
 
     const { error } = await db.from("run_metrics").upsert({
+      user_id: userId,
       activity_id: run.id,
       hr_settings_id: settings?.id ?? null,
       formula_version: RUNNING_FORMULA_VERSION,

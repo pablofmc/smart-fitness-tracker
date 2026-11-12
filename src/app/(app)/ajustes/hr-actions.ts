@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireSession } from "@/lib/supabase/auth";
+import { requireUserId } from "@/lib/supabase/auth";
 
 export type SaveHrState = { message?: string; saved?: boolean };
 
@@ -21,14 +21,14 @@ const input = z
  * Saving twice on one day replaces that day's version, which no activity can have used yet for long.
  */
 export async function saveHrSettings(_prev: SaveHrState, formData: FormData): Promise<SaveHrState> {
-  await requireSession();
+  const userId = await requireUserId();
   const parsed = input.safeParse(Object.fromEntries(formData));
   if (!parsed.success) return { message: "Revisa los valores: la máxima debe superar la de reposo y el umbral no puede pasarla." };
   const { maxHr, restingHr, lthr, today } = parsed.data;
 
   const { error } = await createAdminClient()
     .from("hr_settings")
-    .upsert({ effective_from: today, max_hr: maxHr, resting_hr: restingHr, lthr, source: "owner" }, { onConflict: "effective_from" });
+    .upsert({ user_id: userId, effective_from: today, max_hr: maxHr, resting_hr: restingHr, lthr, source: "owner" }, { onConflict: "user_id,effective_from" });
   if (error) return { message: "No pudimos guardar. Intenta de nuevo." };
   revalidatePath("/", "layout");
   return { saved: true };

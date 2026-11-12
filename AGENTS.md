@@ -1,6 +1,6 @@
 # Smart Fitness Tracker
 
-A personal app that pulls my own activity and sleep data from Garmin Connect (Personal API tier) and turns it into something useful. Single user: me.
+A personal app that pulls my own activity and sleep data from Garmin Connect (Personal API tier) and turns it into something useful. Two users: me and, invited, my spouse, each with their own Garmin key and data (ADR-0007). Every query in admin code filters by user.
 
 ## Before working
 

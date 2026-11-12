@@ -3,6 +3,9 @@ begin;
 create extension if not exists pgtap with schema extensions;
 select plan(13);
 
+-- Rows inserted below belong to the local owner (user_id defaults to auth.uid(), ADR-0007).
+set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","is_anonymous":false}';
+
 -- Rolled back with the rest of the test, so local shoes survive.
 delete from public.shoes;
 insert into public.shoes (brand, model, version, run_types, started_on, is_default)
@@ -34,7 +37,7 @@ select throws_ok($$ select * from public.shoe_totals $$, '42501', null, 'anon ca
 reset role;
 
 set local role authenticated;
-set local request.jwt.claims = '{"sub":"11111111-1111-4111-8111-111111111111","is_anonymous":true}';
+set local request.jwt.claims = '{"sub":"44444444-4444-4444-8444-444444444444","is_anonymous":true}';
 select is_empty($$ select 1 from public.shoes $$, 'an anonymous session reads no shoes');
 reset role;
 

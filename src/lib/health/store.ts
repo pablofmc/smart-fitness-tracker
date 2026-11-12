@@ -8,13 +8,13 @@ import { HEALTH_KINDS, HEALTH_PARSER_VERSION, splitHealthPayload } from "./parse
 const BATCH_SIZE = 20;
 
 /** Same contract as parsePendingActivities: resumable within a budget, and the reprocess job too. */
-export async function parsePendingHealth(budgetMs: number) {
+export async function parsePendingHealth(userId: string, budgetMs: number) {
   const db = createAdminClient();
   const deadline = Date.now() + budgetMs;
 
   const [files, parsed] = await Promise.all([
-    readAll((from, to) => db.from("raw_files").select("id, kind, source_key, storage_path, sha256").in("kind", HEALTH_KINDS).order("id").range(from, to)),
-    readAll((from, to) => db.from("health_parsed_files").select("raw_file_id, raw_sha256, parser_version").order("raw_file_id").range(from, to)),
+    readAll((from, to) => db.from("raw_files").select("id, kind, source_key, storage_path, sha256").eq("user_id", userId).in("kind", HEALTH_KINDS).order("id").range(from, to)),
+    readAll((from, to) => db.from("health_parsed_files").select("raw_file_id, raw_sha256, parser_version").eq("user_id", userId).order("raw_file_id").range(from, to)),
   ]);
   const current = new Set(parsed.filter((row) => row.parser_version === HEALTH_PARSER_VERSION).map((row) => `${row.raw_file_id}:${row.raw_sha256}`));
   const pending = files.filter((file) => !current.has(`${file.id}:${file.sha256}`));
@@ -29,6 +29,7 @@ export async function parsePendingHealth(budgetMs: number) {
           if (error) throw new Error(`Downloading ${file.storage_path}: ${error.message}`);
           const payload = JSON.parse(gunzipSync(Buffer.from(await data.arrayBuffer())).toString());
           return splitHealthPayload(file.kind, file.source_key, payload).map(({ day, data: dayData }) => ({
+            user_id: userId,
             kind: file.kind,
             day,
             raw_file_id: file.id,
@@ -45,7 +46,7 @@ export async function parsePendingHealth(budgetMs: number) {
     }
     const { error } = await db
       .from("health_parsed_files")
-      .upsert(batch.map((file) => ({ raw_file_id: file.id, raw_sha256: file.sha256, parser_version: HEALTH_PARSER_VERSION })));
+      .upsert(batch.map((file) => ({ user_id: userId, raw_file_id: file.id, raw_sha256: file.sha256, parser_version: HEALTH_PARSER_VERSION })));
     if (error) throw new Error(`Recording parsed files: ${error.message}`);
     done += batch.length;
   }

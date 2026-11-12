@@ -1,3 +1,7 @@
+---
+status: superseded by ADR-0007
+---
+
 # One user, on Garmin's Personal API tier
 
 The app serves exactly one person: me. It reads my data with a Garmin Personal API key, which is free and read-only, and which (per secondary sources, see `docs/garmin-api.md`) may not be used to serve other people. So the tables have no `user_id`. RLS policies only require a real session (role `authenticated`, not anonymous) and don't filter rows by owner. Access is controlled in Supabase Auth: email and password login, with sign-ups turned off after my account is created (R-SEC-01, R-SEC-02).

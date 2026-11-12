@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { NoDataYet } from "@/components/onboarding";
 import Link from "next/link";
 import { FormChart } from "@/components/form-chart";
 import { HealthTrends } from "@/components/health-trends";
@@ -94,6 +95,7 @@ export default async function TendenciasPage({ searchParams }: { searchParams: P
   return (
     <div className="flex flex-col gap-3.5">
       <h1 className="text-[28px] font-extrabold">Tendencias</h1>
+      <NoDataYet />
       <ViewTabs current="carga" />
 
       <div role="group" aria-label="Periodo" className="grid grid-cols-4 gap-1 rounded-2xl bg-card p-1">

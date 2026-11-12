@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { requireSession } from "@/lib/supabase/auth";
+import { requireUserId } from "@/lib/supabase/auth";
 
 const upload = z.object({
   session: z.object({
@@ -38,13 +38,23 @@ export type SessionUpload = z.input<typeof upload>;
  * phone, so sending the same sets again after a dropped connection never duplicates them.
  */
 export async function uploadSession(input: SessionUpload): Promise<{ ok: boolean }> {
-  await requireSession();
+  const userId = await requireUserId();
   const parsed = upload.safeParse(input);
   if (!parsed.success) return { ok: false };
   const { session, sets, deletedSetIds } = parsed.data;
   const db = createAdminClient();
 
+  // An upsert on an id that belongs to the other person would hand their row over: refuse it (R-USR-01).
+  const [{ count: foreignSessions }, { count: foreignSets }] = await Promise.all([
+    db.from("logged_sessions").select("id", { count: "exact", head: true }).eq("id", session.id).neq("user_id", userId),
+    sets.length
+      ? db.from("logged_sets").select("id", { count: "exact", head: true }).in("id", sets.map((s) => s.id)).neq("user_id", userId)
+      : Promise.resolve({ count: 0 }),
+  ]);
+  if (foreignSessions || foreignSets) return { ok: false };
+
   const header = await db.from("logged_sessions").upsert({
+    user_id: userId,
     id: session.id,
     routine_id: session.routineId,
     name: session.name,
@@ -55,17 +65,18 @@ export async function uploadSession(input: SessionUpload): Promise<{ ok: boolean
   });
   // A routine deleted meanwhile: keep the session without it.
   if (header.error?.code === "23503") {
-    const retry = await db.from("logged_sessions").upsert({ id: session.id, routine_id: null, name: session.name, local_day: session.localDay, started_at: session.startedAt, ended_at: session.endedAt });
+    const retry = await db.from("logged_sessions").upsert({ user_id: userId, id: session.id, routine_id: null, name: session.name, local_day: session.localDay, started_at: session.startedAt, ended_at: session.endedAt });
     if (retry.error) return { ok: false };
   } else if (header.error) return { ok: false };
 
   if (deletedSetIds.length) {
-    const { error } = await db.from("logged_sets").delete().eq("session_id", session.id).in("id", deletedSetIds);
+    const { error } = await db.from("logged_sets").delete().eq("user_id", userId).eq("session_id", session.id).in("id", deletedSetIds);
     if (error) return { ok: false };
   }
   if (sets.length) {
     const { error } = await db.from("logged_sets").upsert(
       sets.map((s) => ({
+        user_id: userId,
         id: s.id,
         session_id: session.id,
         exercise_name: s.exerciseName,
@@ -87,14 +98,19 @@ const pick = z.object({ sessionId: z.uuid(), activityId: z.number().int().positi
 
 /** "This logged session belongs to that watch activity": my pick sticks, the sync never changes it (R-STR-09). */
 export async function linkSessionToActivity(input: z.input<typeof pick>): Promise<{ message?: string }> {
-  await requireSession();
+  const userId = await requireUserId();
   const parsed = pick.safeParse(input);
   if (!parsed.success) return { message: "No pudimos unir la sesión." };
   const db = createAdminClient();
-  const { data: activity } = await db.from("activities").select("id").eq("id", parsed.data.activityId).eq("sport", "strength_training").maybeSingle();
+  const { data: activity } = await db.from("activities").select("id").eq("user_id", userId).eq("id", parsed.data.activityId).eq("sport", "strength_training").maybeSingle();
   if (!activity) return { message: "Esa actividad de fuerza ya no existe." };
-  const { error } = await db.from("logged_sessions").update({ activity_id: parsed.data.activityId, link_source: "manual" }).eq("id", parsed.data.sessionId);
-  if (error) return { message: "No pudimos unir la sesión." };
+  const { data: linked, error } = await db
+    .from("logged_sessions")
+    .update({ activity_id: parsed.data.activityId, link_source: "manual" })
+    .eq("user_id", userId)
+    .eq("id", parsed.data.sessionId)
+    .select("id");
+  if (error || !linked?.length) return { message: "No pudimos unir la sesión." };
   revalidatePath(`/actividades/${parsed.data.activityId}`);
   return {};
 }
