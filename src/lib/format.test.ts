@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatMonthYear, formatRelativeTime, formatShortDate } from "./format";
+import { formatLongDate, formatMonthYear, formatRelativeTime, formatShortDate } from "./format";
 
 describe("formatShortDate", () => {
   it("keeps the calendar day, whatever the server's time zone", () => {
@@ -22,5 +22,11 @@ describe("formatRelativeTime", () => {
 describe("formatMonthYear", () => {
   it("spells the month in Spanish", () => {
     expect(formatMonthYear("2023-03-14")).toBe("marzo de 2023");
+  });
+});
+
+describe("formatLongDate", () => {
+  it("spells out the day for Hoy's history notice", () => {
+    expect(formatLongDate("2025-03-02")).toBe("2 de marzo de 2025");
   });
 });

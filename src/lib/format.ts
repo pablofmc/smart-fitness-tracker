@@ -21,3 +21,10 @@ const MONTH_YEAR = new Intl.DateTimeFormat("es", { month: "long", year: "numeric
 export function formatMonthYear(day: string) {
   return MONTH_YEAR.format(new Date(`${day}T00:00:00Z`));
 }
+
+const LONG_DATE = new Intl.DateTimeFormat("es", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+
+/** "2025-03-02" → "2 de marzo de 2025". */
+export function formatLongDate(day: string) {
+  return LONG_DATE.format(new Date(`${day}T00:00:00Z`));
+}

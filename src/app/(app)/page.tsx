@@ -1,5 +1,8 @@
 import { Checkin } from "@/components/checkin";
+import { ConnectGarmin, HistoryLoading, TempPasswordNotice } from "@/components/onboarding";
 import { SyncNotice } from "@/components/sync-notice";
+import { hasTemporaryPassword } from "@/lib/account/password";
+import { pickNotice } from "@/lib/sync/notice";
 import { TodayHeader } from "@/components/today-header";
 import { formatDuration, formatKm, sportGroup } from "@/lib/activities/list";
 import { recentSportOrder } from "@/lib/activities/recent";
@@ -35,15 +38,29 @@ function vsRange(b: Baseline, format: (v: number) => string) {
 export default async function HoyPage() {
   const today = await ownerToday();
   const db = await createClient();
-  const [key, sync, health, { data: acts }, { data: tags }, { data: checkin }] = await Promise.all([
+  const [key, sync, health, { data: acts }, { data: tags }, { data: checkin }, { data: auth }] = await Promise.all([
     getGarminKeyStatus(),
     getSyncOverview(),
     readHealthDays(HEALTH_METRIC_KINDS, addDays(today, -70)),
     db.from("activities").select("local_day, sport, distance_m, duration_s, activity_loads(trimp, zone_seconds)").gte("local_day", addDays(today, -400)).order("local_day"),
     db.from("checkin_tags").select("name").order("created_at"),
     db.from("checkins").select("feel, tags, weight_kg, note").eq("day", today).maybeSingle(),
+    db.auth.getClaims(),
   ]);
+  const tempPassword = hasTemporaryPassword(auth?.claims);
   const syncLabel = sync.lastSuccessAt ? formatRelativeTime(sync.lastSuccessAt, new Date()) : "Sin sincronizar";
+
+  // A new account with nothing to show yet: how to connect Garmin, not a verdict on empty data (R-USR-03).
+  if (key.kind === "missing" && sync.activityCount === 0) {
+    return (
+      <div className="flex flex-col gap-3.5">
+        <TodayHeader syncLabel={syncLabel} />
+        {tempPassword ? <TempPasswordNotice /> : null}
+        <ConnectGarmin />
+      </div>
+    );
+  }
+  const importing = pickNotice({ key, lastFailed: sync.lastFailed, stopped: sync.stopped, history: sync.history }) === "importing";
 
   const series = (k: string) => metricSeries(metricByKey(k)!, health);
   const sleep = series("sleep");
@@ -107,22 +124,27 @@ export default async function HoyPage() {
   return (
     <div className="flex flex-col gap-3.5">
       <TodayHeader syncLabel={syncLabel} />
-      <SyncNotice keyStatus={key} lastFailed={sync.lastFailed} stopped={sync.stopped} history={sync.history} activityCount={sync.activityCount} />
+      {tempPassword ? <TempPasswordNotice /> : null}
+      {importing ? null : <SyncNotice keyStatus={key} lastFailed={sync.lastFailed} stopped={sync.stopped} history={sync.history} activityCount={sync.activityCount} />}
       <ShoeWarnings today={today} />
 
-      <section className="flex flex-col gap-3.5 rounded-3xl bg-hero px-5 py-[22px] text-on-hero">
-        <h1 className="text-[26px] leading-tight font-extrabold">{verdict.sentence}</h1>
-        <p className="text-[15px] leading-normal opacity-90">{verdict.detail}</p>
-        <details className="group">
-          <summary className="flex h-11 w-fit cursor-pointer list-none items-center rounded-full bg-white/90 px-4 text-sm font-bold text-ink">Por qué</summary>
-          <div className="mt-3 flex flex-col gap-1 text-sm opacity-90">
-            <span className="font-bold">Regla {verdict.rule}</span>
-            {verdict.inputs.map((input) => (
-              <span key={input}>{input}</span>
-            ))}
-          </div>
-        </details>
-      </section>
+      {importing ? (
+        <HistoryLoading percent={sync.history.percent} reachedDay={sync.history.reachedDay} />
+      ) : (
+        <section className="flex flex-col gap-3.5 rounded-3xl bg-hero px-5 py-[22px] text-on-hero">
+          <h1 className="text-[26px] leading-tight font-extrabold">{verdict.sentence}</h1>
+          <p className="text-[15px] leading-normal opacity-90">{verdict.detail}</p>
+          <details className="group">
+            <summary className="flex h-11 w-fit cursor-pointer list-none items-center rounded-full bg-white/90 px-4 text-sm font-bold text-ink">Por qué</summary>
+            <div className="mt-3 flex flex-col gap-1 text-sm opacity-90">
+              <span className="font-bold">Regla {verdict.rule}</span>
+              {verdict.inputs.map((input) => (
+                <span key={input}>{input}</span>
+              ))}
+            </div>
+          </details>
+        </section>
+      )}
 
       {cards.map((card) => (
         <section key={card.label} className="flex items-center gap-3.5 rounded-[20px] bg-card px-[18px] py-4">
