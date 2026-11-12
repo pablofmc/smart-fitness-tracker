@@ -9,3 +9,10 @@ export async function requireSession() {
   }
   return data.claims;
 }
+
+/** The signed-in person's id. Admin-client code filters and writes every row by it (ADR-0007). */
+export async function requireUserId() {
+  const claims = await requireSession();
+  if (typeof claims.sub !== "string" || claims.sub === "") throw new Error("Inicia sesión para continuar.");
+  return claims.sub;
+}
