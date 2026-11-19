@@ -1,4 +1,5 @@
 import { beatsBest, epley } from "@/lib/metrics/strength";
+import { fromUnit, LOAD_SPEC, toUnit, type WeightUnit } from "@/lib/units";
 
 /** Weight and reps of one set. */
 export type Effort = { kg: number; reps: number };
@@ -43,7 +44,13 @@ export type ActiveSession = {
   deletedSetIds: string[];
 };
 
-export const KG_STEP = 2.5;
+/**
+ * The − / + buttons: one step of the unit shown (2.5 kg or 5 lb) from the current weight, never below 0.
+ * A typed weight off the step (21 kg) moves by a step from there (#65).
+ */
+export function stepWeight(kg: number, direction: 1 | -1, unit: WeightUnit): number {
+  return fromUnit(Math.max(0, toUnit(kg, unit) + direction * LOAD_SPEC[unit].step), unit);
+}
 
 /** The first number in a target like "8-10" or "12 c/lado"; null for "45 s" or nothing. */
 export function targetRepsNumber(target: string | null): number | null {

@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ActivityChart } from "@/components/activity-chart";
-import { chartSeries, decodeActivityZip, lapRows, missingCharts, RUN_CHARTS, type LapRow } from "@/lib/activities/fit";
+import { RouteMap } from "@/components/route-map";
+import { chartSeries, decodeActivityZip, lapRows, missingCharts, paceThirds, routeOf, RUN_CHARTS, type LapRow } from "@/lib/activities/fit";
 import { formatDuration, formatKm, sportGroup, sportsInGroup } from "@/lib/activities/list";
 import { activityVerdict } from "@/lib/metrics/verdict";
 import { createClient } from "@/lib/supabase/server";
@@ -83,6 +84,7 @@ export default async function ActivityPage({ params }: { params: Promise<{ id: s
   ]);
 
   const series = fit ? chartSeries(fit.records, { speedAsPace: !usesSpeed }) : [];
+  const route = fit ? routeOf(fit.records) : null;
   const missing = missingCharts(series, group === "Correr" ? RUN_CHARTS : []);
   const laps = fit ? lapRows(fit.laps).filter((lap) => lap.time_s) : [];
   const elevation = number(data.elevationGain);
@@ -159,6 +161,12 @@ export default async function ActivityPage({ params }: { params: Promise<{ id: s
           </details>
         ) : null}
       </section>
+
+      {route ? (
+        <RouteMap route={route} thirds={paceThirds(route)} label={`Mapa de la ruta${activity.distance_m ? ` de ${formatKm(activity.distance_m)}` : ""}`} />
+      ) : fit && group === "Correr" ? (
+        <section className="flex items-center gap-3 rounded-[20px] bg-card px-4 py-3.5 text-sm leading-snug text-muted">Sin GPS en esta carrera (cinta o interior), así que no hay ruta que mostrar.</section>
+      ) : null}
 
       {group === "Correr" ? <RunShoe activityId={activity.id} distanceM={activity.distance_m} /> : null}
 

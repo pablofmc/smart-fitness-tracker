@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { readWeightUnit } from "@/lib/account/weight-unit";
 import { AI_READS_PER_MONTH, capMessage } from "@/modules/routines/read-cap";
 import { aiReadsThisMonth } from "@/modules/routines/read-count";
 import { BackHeader } from "../back-header";
@@ -11,7 +12,7 @@ export default async function NuevaRutinaPage() {
   return (
     <div className="flex flex-col gap-4">
       <BackHeader title="Nueva rutina" />
-      <RoutineForm aiCapMessage={used >= AI_READS_PER_MONTH ? capMessage(today) : null} />
+      <RoutineForm unit={await readWeightUnit()} aiCapMessage={used >= AI_READS_PER_MONTH ? capMessage(today) : null} />
     </div>
   );
 }

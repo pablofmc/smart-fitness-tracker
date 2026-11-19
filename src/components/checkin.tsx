@@ -2,13 +2,14 @@
 
 import { useState, useTransition } from "react";
 import { saveCheckin } from "@/app/(app)/checkin-actions";
+import { BODY_WEIGHT_KG, parseWeight, weightNumber, type WeightUnit } from "@/lib/units";
 
 const FEELINGS = ["Fatal", "Mal", "Normal", "Bien", "Genial"];
 
 type Saved = { feel: number | null; tags: string[]; weightKg: number | null; note: string | null };
 
 /** One tap per answer, saved as you go, so it fits in ten seconds with one hand (R-CHK-01). */
-export function Checkin({ day, tags, saved }: { day: string; tags: string[]; saved: Saved | null }) {
+export function Checkin({ day, tags, saved, unit }: { day: string; tags: string[]; saved: Saved | null; unit: WeightUnit }) {
   const [state, setState] = useState<Saved>(saved ?? { feel: null, tags: [], weightKg: null, note: null });
   const [more, setMore] = useState(Boolean(saved?.weightKg || saved?.note));
   const [message, setMessage] = useState<string>();
@@ -63,15 +64,27 @@ export function Checkin({ day, tags, saved }: { day: string; tags: string[]; sav
       {more ? (
         <div className="flex flex-col gap-2">
           <label className="flex items-center justify-between gap-3 text-sm font-bold">
-            Peso (kg)
+            Peso ({unit})
             <input
-              type="number"
+              type="text"
               inputMode="decimal"
-              step="0.1"
-              min="20"
-              max="300"
-              defaultValue={state.weightKg ?? ""}
-              onBlur={(e) => save({ ...state, weightKg: e.target.value ? Number(e.target.value) : null })}
+              autoComplete="off"
+              key={`${unit}-${state.weightKg}`}
+              defaultValue={state.weightKg === null ? "" : weightNumber(state.weightKg, unit)}
+              onBlur={(e) => {
+                // Typed in the person's unit, stored in kg (#66); empty clears it.
+                if (!e.target.value.trim()) {
+                  if (state.weightKg !== null) save({ ...state, weightKg: null });
+                  return;
+                }
+                const parsed = parseWeight(e.target.value, unit, BODY_WEIGHT_KG);
+                if (!parsed.ok) {
+                  setMessage(parsed.message);
+                  e.target.value = state.weightKg === null ? "" : weightNumber(state.weightKg, unit);
+                  return;
+                }
+                if (parsed.kg !== state.weightKg) save({ ...state, weightKg: parsed.kg });
+              }}
               className="h-11 w-28 rounded-xl border border-line bg-field px-3 text-right font-semibold"
             />
           </label>

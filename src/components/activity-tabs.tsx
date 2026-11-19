@@ -1,13 +1,14 @@
 import Link from "next/link";
 
-/** "Actividades | Rutinas" at the top of the Actividad tab (canvas: C2-Rutinas). */
-export function ActivityTabs({ current }: { current: "actividades" | "rutinas" }) {
+/** "Actividades | Rutinas | Récords" at the top of the Actividad tab (canvas: C2-Rutinas, C2-Records). */
+export function ActivityTabs({ current }: { current: "actividades" | "rutinas" | "records" }) {
   const tabs = [
     { key: "actividades", href: "/actividades", label: "Actividades" },
     { key: "rutinas", href: "/rutinas", label: "Rutinas" },
+    { key: "records", href: "/records", label: "Récords" },
   ] as const;
   return (
-    <nav aria-label="Actividad" className="grid max-w-xl grid-cols-2 gap-1 rounded-2xl bg-card p-1">
+    <nav aria-label="Actividad" className="grid max-w-xl grid-cols-3 gap-1 rounded-2xl bg-card p-1">
       {tabs.map((tab) => (
         <Link
           key={tab.key}

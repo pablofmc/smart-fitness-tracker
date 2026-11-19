@@ -1,4 +1,5 @@
 import { Checkin } from "@/components/checkin";
+import { readWeightUnit } from "@/lib/account/weight-unit";
 import { ConnectGarmin, HistoryLoading, TempPasswordNotice } from "@/components/onboarding";
 import { SyncNotice } from "@/components/sync-notice";
 import { hasTemporaryPassword } from "@/lib/account/password";
@@ -13,7 +14,9 @@ import { readHealthDays } from "@/lib/health/read";
 import { mondayOf } from "@/lib/load/weekly";
 import { baseline, type Baseline } from "@/lib/metrics/baseline";
 import { dailyLoads, formCurve } from "@/lib/metrics/form";
+import { readinessOn } from "@/lib/metrics/readiness";
 import { dayVerdict } from "@/lib/metrics/verdict";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/server";
 import { addDays } from "@/lib/sync/streams";
 import { getSyncOverview } from "@/lib/sync/overview";
@@ -82,6 +85,7 @@ export default async function HoyPage() {
   const curve = formCurve(dailyLoads(activities.filter((a) => a.trimp !== null).map((a) => ({ day: a.day, trimp: a.trimp! }))), today);
   const tsb = curve.length ? curve[curve.length - 1].tsb : null;
   const verdict = dayVerdict({ hrv: hrvB, sleep: sleepB, tsb });
+  const ready = readinessOn(today, { hrv: series("hrv"), sleep, curve }).readiness;
 
   const order = recentSportOrder(activities, today);
   const colorOf = (group: string) => SPORT_COLORS[order.findIndex((s) => s.group === group)] ?? "bg-line";
@@ -132,17 +136,12 @@ export default async function HoyPage() {
         <HistoryLoading percent={sync.history.percent} reachedDay={sync.history.reachedDay} />
       ) : (
         <section className="flex flex-col gap-3.5 rounded-3xl bg-hero px-5 py-[22px] text-on-hero">
+          <span className="text-[13px] font-semibold opacity-80">{ready.available ? `Preparación ${ready.score} · ${ready.band}` : "Preparación: sin número hoy"}</span>
           <h1 className="text-[26px] leading-tight font-extrabold">{verdict.sentence}</h1>
           <p className="text-[15px] leading-normal opacity-90">{verdict.detail}</p>
-          <details className="group">
-            <summary className="flex h-11 w-fit cursor-pointer list-none items-center rounded-full bg-white/90 px-4 text-sm font-bold text-ink">Por qué</summary>
-            <div className="mt-3 flex flex-col gap-1 text-sm opacity-90">
-              <span className="font-bold">Regla {verdict.rule}</span>
-              {verdict.inputs.map((input) => (
-                <span key={input}>{input}</span>
-              ))}
-            </div>
-          </details>
+          <Link href="/preparacion" className="flex h-11 w-fit items-center rounded-full bg-white/90 px-4 text-sm font-bold text-ink">
+            {ready.available ? "Por qué este número" : "Por qué"}
+          </Link>
         </section>
       )}
 
@@ -203,7 +202,8 @@ export default async function HoyPage() {
       <Checkin
         day={today}
         tags={(tags ?? []).map((t) => t.name)}
-        saved={checkin ? { feel: checkin.feel, tags: checkin.tags, weightKg: checkin.weight_kg, note: checkin.note } : null}
+        saved={checkin ? { feel: checkin.feel, tags: checkin.tags, weightKg: checkin.weight_kg === null ? null : Number(checkin.weight_kg), note: checkin.note } : null}
+        unit={await readWeightUnit()}
       />
     </div>
   );

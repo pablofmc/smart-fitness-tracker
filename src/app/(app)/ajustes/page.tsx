@@ -7,6 +7,8 @@ import { GarminSection } from "./garmin-section";
 import { HrSection } from "./hr-section";
 import { PasswordForm } from "./password-form";
 import { TagsSection } from "./tags-section";
+import { UnitSection } from "./unit-section";
+import { readWeightUnit } from "@/lib/account/weight-unit";
 import { hasTemporaryPassword } from "@/lib/account/password";
 import { signOut } from "@/app/login/actions";
 import { AI_READS_PER_MONTH, nextMonthStart } from "@/modules/routines/read-cap";
@@ -16,7 +18,7 @@ export const metadata: Metadata = { title: "Ajustes" };
 
 export default async function AjustesPage() {
   const supabase = await createClient();
-  const [{ data }, garminStatus, sync, { data: hr }, { data: tags }, aiReads] = await Promise.all([
+  const [{ data }, garminStatus, sync, { data: hr }, { data: tags }, aiReads, unit] = await Promise.all([
     supabase.auth.getClaims(),
     getGarminKeyStatus(),
     getSyncOverview(),
@@ -24,6 +26,7 @@ export default async function AjustesPage() {
     supabase.from("checkin_tags").select("name").order("created_at"),
     // ADR-0006: the one paid call, counted so spending stays visible, and capped per person (R-USR-04).
     aiReadsThisMonth(),
+    readWeightUnit(),
   ]);
   const versions = (hr ?? []).map((v) => ({ effectiveFrom: v.effective_from, maxHr: v.max_hr, restingHr: v.resting_hr, lthr: v.lthr, source: v.source }));
 
@@ -35,6 +38,8 @@ export default async function AjustesPage() {
         <h2 className="text-[17px] font-extrabold">Apariencia</h2>
         <ThemeSelector />
       </section>
+
+      <UnitSection unit={unit} />
 
       <GarminSection status={garminStatus} sync={sync} />
 

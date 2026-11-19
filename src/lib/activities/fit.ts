@@ -9,6 +9,9 @@ export type FitRecord = {
   enhancedAltitude?: number;
   cadence?: number;
   fractionalCadence?: number;
+  /** Semicircles, as the .FIT stores them; absent indoors or before the watch finds GPS. */
+  positionLat?: number;
+  positionLong?: number;
 };
 
 export type FitLap = {
@@ -104,4 +107,32 @@ export function lapRows(laps: FitLap[]): LapRow[] {
     hr: lap.avgHeartRate ?? null,
     cadence: stepsPerMinute(lap.avgRunningCadence ?? lap.avgCadence, lap.avgFractionalCadence) ?? null,
   }));
+}
+
+const SEMICIRCLE = 180 / 2 ** 31;
+
+export type RoutePoint = { lat: number; lon: number; speed: number | null };
+
+/**
+ * The route as degrees, thinned to at most `maxPoints` (R-ACT-06). Records without a position are
+ * skipped, and so are (0, 0) fixes, which some watches write before GPS locks. Null without GPS.
+ */
+export function routeOf(records: FitRecord[], maxPoints = 600): RoutePoint[] | null {
+  const points = records
+    .filter((r) => typeof r.positionLat === "number" && typeof r.positionLong === "number" && !(r.positionLat === 0 && r.positionLong === 0))
+    .map((r) => ({ lat: r.positionLat! * SEMICIRCLE, lon: r.positionLong! * SEMICIRCLE, speed: typeof r.enhancedSpeed === "number" ? r.enhancedSpeed : null }));
+  if (points.length < 2) return null;
+  const step = Math.ceil(points.length / maxPoints);
+  const thinned = points.filter((_, i) => i % step === 0);
+  if (thinned[thinned.length - 1] !== points[points.length - 1]) thinned.push(points[points.length - 1]);
+  return thinned;
+}
+
+/** Splits a route's speeds in thirds so the map can paint fast, middle and slow stretches. */
+export function paceThirds(route: RoutePoint[]): (0 | 1 | 2 | null)[] {
+  const speeds = route.map((p) => p.speed).filter((v): v is number => v !== null).sort((a, b) => a - b);
+  if (speeds.length < 3) return route.map(() => null);
+  const low = speeds[Math.floor(speeds.length / 3)];
+  const high = speeds[Math.floor((2 * speeds.length) / 3)];
+  return route.map((p) => (p.speed === null ? null : p.speed >= high ? 0 : p.speed >= low ? 1 : 2));
 }

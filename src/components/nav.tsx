@@ -19,7 +19,7 @@ const TABS = [
 function isActive(pathname: string, href: string) {
   if (href === "/") return pathname === "/";
   // Routines live under the Actividad tab (canvas: C2-Rutinas).
-  if (href === "/actividades" && (pathname.startsWith("/rutinas") || pathname.startsWith("/sesion"))) return true;
+  if (href === "/actividades" && ["/rutinas", "/sesion", "/records"].some((p) => pathname.startsWith(p))) return true;
   return pathname.startsWith(href);
 }
 
