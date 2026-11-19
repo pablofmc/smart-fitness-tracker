@@ -54,6 +54,17 @@ Only from the sets I log (R-STR-08); Garmin has no weights for this user's sessi
 
 For HRV and resting HR: compare the mean of the last 7 days with the normal range, which is the 60-day mean ± 1 standard deviation over the 60 days ending yesterday. For a single-night value (for example last night's sleep), compare the value itself with the same kind of range. Conventions: the range needs at least 14 values in its window, and the 7-day mean needs at least 3. Below that, return "sin línea base aún".
 
+## Readiness (R-LOAD-06)
+
+Our own daily score from 0 to 100, approved by the owner on 2026-11-18. Formula version 1.
+
+- **HRV part:** z = (7-day HRV mean − 60-day mean) / 60-day SD, from the personal baseline below. Part = 50 + 25 × z, clamped to [0, 100] and rounded. Your normal mean gives 50; the top of your normal range (+1 SD) gives 75.
+- **Sleep part:** the same, with last night's sleep hours against its 60-night baseline.
+- **Form part:** 70 + 2 × TSB, clamped to [0, 100] and rounded. TSB 0 gives 70, +15 gives 100, −10 gives 50, −35 gives 0.
+- **Score** = 40 % HRV part + 35 % sleep part + 25 % form part, rounded.
+- **Bands:** < 40 baja, 40–59 media, 60–79 buena, ≥ 80 muy buena.
+- **Missing is not zero:** no HRV baseline, no sleep last night (or no sleep baseline), or no TSB means no score, with the reason. When the 60-day SD is 0, z is 0.
+
 ## Correlations (R-COR-01, R-COR-02, R-COR-03)
 
 - **Numeric vs numeric:** Spearman ρ between X on day d and Y on day d + lag. Strength by |ρ|: < 0.2 muy débil, 0.2–0.4 débil, 0.4–0.6 moderada, ≥ 0.6 fuerte.
