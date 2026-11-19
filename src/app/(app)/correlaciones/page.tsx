@@ -3,10 +3,13 @@ import { NoDataYet } from "@/components/onboarding";
 import { HEALTH_METRICS, metricByKey } from "@/lib/health/metrics";
 import { readMetric } from "@/lib/health/read";
 import type { DayValue } from "@/lib/metrics/baseline";
-import { correlate, type Correlation } from "@/lib/metrics/correlation";
+import { compareTag, correlate, type Correlation } from "@/lib/metrics/correlation";
 import { dailyLoads, formCurve } from "@/lib/metrics/form";
 import { createClient } from "@/lib/supabase/server";
 import { ownerToday } from "@/lib/today";
+import { explorerOptions, formatValue, isTag, readChoice } from "@/modules/insights/explorer";
+import { Explorer } from "./explorer";
+import { TagCard, type TagPair } from "./tag-card";
 
 export const metadata: Metadata = { title: "Patrones" };
 
@@ -23,6 +26,30 @@ const CURATED: Pair[] = [
   { x: "atl", y: "restingHr", lag: 0, up: "Con más fatiga acumulada, tu FC en reposo sube.", down: "Con más fatiga acumulada, tu FC en reposo baja." },
   { x: "stress", y: "sleepScore", lag: 1, up: "Tras un día más estresante, duermes mejor.", down: "Tras un día más estresante, duermes peor." },
 ];
+
+/**
+ * Check-in tags against what they might move (R-COR-04). The tag is on day d, and the night metrics
+ * (HRV, sleep) of day d + 1 are the night after it.
+ */
+const TAG_PAIRS: TagPair[] = [
+  { tag: "Alcohol", metric: "hrv", lag: 1, title: "Alcohol → HRV de la noche siguiente", lead: "Tras beber", subject: "tu HRV", withLabel: "Con alcohol", withoutLabel: "Sin alcohol" },
+  { tag: "Café tarde", metric: "deepSleep", lag: 1, title: "Café tarde → sueño profundo", lead: "Con café por la tarde", subject: "tu sueño profundo", withLabel: "Con café", withoutLabel: "Sin café" },
+  { tag: "Estrés trabajo", metric: "sleepScore", lag: 1, title: "Estrés en el trabajo → sueño", lead: "Tras un día de estrés en el trabajo", subject: "tu puntuación de sueño", withLabel: "Con estrés", withoutLabel: "Sin estrés" },
+  { tag: "Viaje", metric: "restingHr", lag: 1, title: "Viaje → FC en reposo", lead: "Viajando", subject: "tu FC en reposo", withLabel: "Viajando", withoutLabel: "En casa" },
+  { tag: "Enfermo", metric: "restingHr", lag: 0, title: "Enfermo → FC en reposo", lead: "Estando enfermo", subject: "tu FC en reposo", withLabel: "Enfermo", withoutLabel: "Sano" },
+];
+
+async function readCheckins() {
+  const db = await createClient();
+  const rows: { day: string; tags: string[]; feel: number | null }[] = [];
+  for (let start = 0; ; start += PAGE_SIZE) {
+    const { data, error } = await db.from("checkins").select("day, tags, feel").order("day").range(start, start + PAGE_SIZE - 1);
+    if (error) throw new Error("No pudimos leer tus check-ins.");
+    rows.push(...data);
+    if (data.length < PAGE_SIZE) break;
+  }
+  return rows;
+}
 
 const LABELS: Record<string, string> = { load: "Carga (TRIMP)", atl: "Fatiga (ATL)", paceAtHr: "Ritmo a FC fija" };
 const label = (key: string) => LABELS[key] ?? metricByKey(key)?.label ?? key;
@@ -46,7 +73,9 @@ async function trainingSeries(today: string) {
   for (const r of rows) if (r.pace !== null) paces.set(r.local_day, [...(paces.get(r.local_day) ?? []), r.pace]);
   return {
     load: curve.map((d) => ({ day: d.day, value: d.load })),
+    ctl: curve.map((d) => ({ day: d.day, value: d.ctl })),
     atl: curve.map((d) => ({ day: d.day, value: d.atl })),
+    tsb: curve.map((d) => ({ day: d.day, value: d.tsb })),
     paceAtHr: [...paces].map(([day, v]) => ({ day, value: v.reduce((s, x) => s + x, 0) / v.length })),
   };
 }
@@ -59,13 +88,29 @@ function sentence(pair: Pair, c: Correlation) {
 
 const LEVEL: Record<string, number> = { "muy débil": 0, débil: 1, moderada: 2, fuerte: 3 };
 
-export default async function PatronesPage() {
-  const today = await ownerToday();
-  const needed = [...new Set(CURATED.flatMap((p) => [p.x, p.y]).filter((k) => HEALTH_METRICS.some((m) => m.key === k)))];
-  const [training, ...health] = await Promise.all([trainingSeries(today), ...needed.map((k) => readMetric(metricByKey(k)!, null))]);
-  const series: Record<string, DayValue[]> = { ...training, ...Object.fromEntries(needed.map((k, i) => [k, health[i]])) };
+export default async function PatronesPage({ searchParams }: { searchParams: Promise<{ x?: string; y?: string; lag?: string }> }) {
+  const [today, params, db] = await Promise.all([ownerToday(), searchParams, createClient()]);
+  const { data: tagRows, error: tagError } = await db.from("checkin_tags").select("name").order("created_at");
+  if (tagError) throw new Error("No pudimos leer tus etiquetas.");
+  const options = explorerOptions(tagRows.map((t) => t.name));
+  const choice = readChoice(params, options);
+  const needed = [...new Set([...CURATED.flatMap((p) => [p.x, p.y]), ...TAG_PAIRS.map((p) => p.metric)].filter((k) => HEALTH_METRICS.some((m) => m.key === k)))];
+  const [training, checkins, ...health] = await Promise.all([trainingSeries(today), readCheckins(), ...needed.map((k) => readMetric(metricByKey(k)!, null))]);
+  const series: Record<string, DayValue[]> = {
+    ...training,
+    feel: checkins.filter((c) => c.feel !== null).map((c) => ({ day: c.day, value: c.feel! })),
+    ...Object.fromEntries(needed.map((k, i) => [k, health[i]])),
+  };
+  // The explorer's two series, read only when the curated set didn't already need them.
+  const seriesFor = async (key: string) => (isTag(key) ? [] : (series[key] ?? (metricByKey(key) ? await readMetric(metricByKey(key)!, null) : [])));
+  const [xs, ys] = await Promise.all([seriesFor(choice.x.key), seriesFor(choice.y.key)]);
   const results = CURATED.map((pair) => ({ pair, c: correlate(series[pair.x] ?? [], series[pair.y] ?? [], pair.lag) }));
   const healthDays = new Set(needed.flatMap((k) => series[k].map((d) => d.day))).size;
+  // Tags this person uses, enough or not, so the cards say how far each one is.
+  const usedTags = new Set(checkins.flatMap((c) => c.tags));
+  const tagResults = TAG_PAIRS.filter((p) => usedTags.has(p.tag))
+    .map((pair) => ({ pair, c: compareTag(checkins, pair.tag, series[pair.metric] ?? [], pair.lag) }))
+    .sort((a, b) => Number(b.c.enough) - Number(a.c.enough) || (b.c.enough && a.c.enough ? Math.abs(b.c.d) - Math.abs(a.c.d) : b.c.withTag.length - a.c.withTag.length));
 
   return (
     <div className="flex flex-col gap-3.5">
@@ -74,6 +119,20 @@ export default async function PatronesPage() {
         <span className="text-sm text-muted">Qué se mueve junto en tus datos · {healthDays.toLocaleString("es")} días</span>
       </div>
       <NoDataYet />
+
+      {tagResults.length ? (
+        <>
+          <h2 className="mx-0.5 mt-1 text-[17px] font-extrabold">Tus etiquetas del check-in</h2>
+          {tagResults.map(({ pair, c }) => {
+            const metric = metricByKey(pair.metric)!;
+            return <TagCard key={`${pair.tag}-${pair.metric}`} pair={pair} c={c} unit={metric.unit} format={(v) => formatValue(v, metric.unit)} />;
+          })}
+        </>
+      ) : (
+        <p className="rounded-[20px] bg-card px-4 py-3.5 text-sm leading-snug text-muted">
+          Marca etiquetas en el check-in de Hoy (alcohol, café tarde, viaje…) y aquí verás si cambian tu HRV, tu sueño o tu FC en reposo.
+        </p>
+      )}
 
       <h2 className="mx-0.5 mt-1 text-[17px] font-extrabold">Análisis curados</h2>
       {results.map(({ pair, c }) => {
@@ -97,6 +156,8 @@ export default async function PatronesPage() {
           </section>
         );
       })}
+      <Explorer choice={choice} options={options} xs={xs} ys={ys} checkins={checkins} />
+
       <p className="px-0.5 text-xs leading-snug text-muted">Una correlación no prueba causa. Por debajo de 30 días emparejados no se muestra fuerza.</p>
     </div>
   );
