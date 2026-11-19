@@ -1,4 +1,5 @@
 import { sportsInGroup } from "@/lib/activities/list";
+import { readWeightUnit } from "@/lib/account/weight-unit";
 import { createClient } from "@/lib/supabase/server";
 import { ownerTimeZone } from "@/lib/today";
 import { exerciseName, type ExerciseTotal } from "@/modules/strength/sets";
@@ -14,6 +15,7 @@ import { SessionPicker } from "./session-picker";
  */
 export async function LoggedBlock({ activityId }: { activityId: number }) {
   const db = await createClient();
+  const unit = await readWeightUnit();
   const [timeZone, { data: activity }, { data: linked }] = await Promise.all([
     ownerTimeZone(),
     db.from("activities").select("id, local_day, started_at, duration_s, strength_sessions(exercises)").eq("id", activityId).maybeSingle(),
@@ -50,12 +52,12 @@ export async function LoggedBlock({ activityId }: { activityId: number }) {
                 <div key={`${r.name}-${i}`} className="grid grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)_minmax(0,1fr)] items-start gap-2 border-t border-field py-2.5 text-sm">
                   <span className={`font-bold ${r.unclassified ? "text-muted italic" : ""}`}>{r.logged ? r.name : r.unclassified ? "—" : r.name}</span>
                   <span className="tabular-nums">
-                    {r.logged ? lineText(r.logged) : "—"}
+                    {r.logged ? lineText(r.logged, unit) : "—"}
                   </span>
                   <span className={`tabular-nums ${r.unclassified ? "text-muted italic" : ""}`}>{r.watch ? `${r.watch.sets} ${r.watch.sets === 1 ? "serie" : "series"}${r.watch.reps ? ` · ${r.watch.reps} reps` : ""}${r.unclassified ? " sin clasificar" : ""}` : "—"}</span>
                 </div>
               ))}
-              <span className="pt-2 text-xs leading-snug text-muted">Se muestran juntos, sin mezclarse: el reloj sigue contando sus series y tiempos, y los kg salen solo de lo que anotaste.</span>
+              <span className="pt-2 text-xs leading-snug text-muted">Se muestran juntos, sin mezclarse: el reloj sigue contando sus series y tiempos, y los pesos salen solo de lo que anotaste.</span>
             </section>
           );
         })}

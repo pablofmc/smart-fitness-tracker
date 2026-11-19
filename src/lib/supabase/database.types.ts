@@ -395,6 +395,20 @@ isOneToOne: true
                   Relationships: [
                     
                   ]
+                },"user_settings": {
+                  Row: {
+                    "updated_at": string,"user_id": string,"weight_unit": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "updated_at"?: string,"user_id"?: string,"weight_unit"?: string
+                  }
+                  Update: {
+                    "updated_at"?: string,"user_id"?: string,"weight_unit"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 }
           }
           Views: {

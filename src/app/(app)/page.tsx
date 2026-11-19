@@ -1,4 +1,5 @@
 import { Checkin } from "@/components/checkin";
+import { readWeightUnit } from "@/lib/account/weight-unit";
 import { ConnectGarmin, HistoryLoading, TempPasswordNotice } from "@/components/onboarding";
 import { SyncNotice } from "@/components/sync-notice";
 import { hasTemporaryPassword } from "@/lib/account/password";
@@ -201,7 +202,8 @@ export default async function HoyPage() {
       <Checkin
         day={today}
         tags={(tags ?? []).map((t) => t.name)}
-        saved={checkin ? { feel: checkin.feel, tags: checkin.tags, weightKg: checkin.weight_kg, note: checkin.note } : null}
+        saved={checkin ? { feel: checkin.feel, tags: checkin.tags, weightKg: checkin.weight_kg === null ? null : Number(checkin.weight_kg), note: checkin.note } : null}
+        unit={await readWeightUnit()}
       />
     </div>
   );

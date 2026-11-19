@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { addSet, hasPending, KG_STEP, markSynced, pendingCount, prefill, recordSetIds, removeSet, setsOf, type ActiveSession, type Effort, type SessionExercise } from "@/modules/workouts/session";
+import { formatWeight, parseWeight, weightNumber, type WeightUnit } from "@/lib/units";
+import { addSet, hasPending, markSynced, pendingCount, prefill, recordSetIds, removeSet, setsOf, stepWeight, type ActiveSession, type Effort, type SessionExercise } from "@/modules/workouts/session";
 import { loadActiveSession, pushSession, saveActiveSession } from "@/modules/workouts/store";
 
 export type SessionTemplate = {
@@ -15,9 +16,10 @@ export type SessionTemplate = {
   /** Earlier best weight and estimated 1RM per exercise id (see read-sets). */
   bestById: Record<string, { kg: number; e1rm: number }>;
   fileUrl: string | null;
+  /** The person's weight unit (#66): sets are stored in kg and shown and typed in this. */
+  unit: WeightUnit;
 };
 
-const KG = new Intl.NumberFormat("es", { maximumFractionDigits: 1 });
 const TIME = new Intl.DateTimeFormat("es", { hour: "2-digit", minute: "2-digit" });
 const DAY = new Intl.DateTimeFormat("es", { weekday: "short", day: "numeric", month: "short", timeZone: "UTC" });
 const RETRY_MS = 10_000;
@@ -41,7 +43,11 @@ export function SessionScreen({ template, knownExercises }: { template: SessionT
   const resumed = initial.resumed;
   const first = initial.start.endedAt ? undefined : initial.start.exercises[0];
   const [open, setOpen] = useState<string | null>(first?.key ?? null);
-  const [effort, setEffort] = useState<Effort>(() => (first ? prefill(initial.start, first.key) : { kg: 0, reps: 8 }));
+  const [effort, setEffortState] = useState<Effort>(() => (first ? prefill(initial.start, first.key) : { kg: 0, reps: 8 }));
+  // What's being typed in the weight field (#65), or null when it shows the effort's weight.
+  const [draft, setDraft] = useState<string | null>(null);
+  const [weightError, setWeightError] = useState<string | null>(null);
+  const unit = template.unit;
   const [online, setOnline] = useState(() => navigator.onLine);
   // The phone may say it's online on a weak gym wifi while uploads still fail.
   const [stuck, setStuck] = useState(false);
@@ -98,6 +104,26 @@ export function SessionScreen({ template, knownExercises }: { template: SessionT
   const records = recordSetIds(session);
   const total = session.sets.length;
 
+  function setEffort(next: Effort | ((e: Effort) => Effort)) {
+    setEffortState(next);
+    setDraft(null);
+    setWeightError(null);
+  }
+
+  /** Takes the typed weight, or refuses it and keeps the last valid one. Returns the kg to use, or null. */
+  function commitDraft(): number | null {
+    if (draft === null) return effort.kg;
+    const parsed = parseWeight(draft, unit);
+    setDraft(null);
+    if (!parsed.ok) {
+      setWeightError(`${parsed.message} Se queda en ${formatWeight(effort.kg, unit)}.`);
+      return null;
+    }
+    setEffortState((e) => ({ ...e, kg: parsed.kg }));
+    setWeightError(null);
+    return parsed.kg;
+  }
+
   function openExercise(key: string) {
     setOpen((o) => (o === key ? null : key));
     setEffort(prefill(session, key));
@@ -105,6 +131,12 @@ export function SessionScreen({ template, knownExercises }: { template: SessionT
 
   function log(e: Effort) {
     if (!open) return;
+    if (draft !== null) {
+      // Saved while typing: the typed weight counts, and a refused one saves nothing.
+      const kg = commitDraft();
+      if (kg === null) return;
+      e = { ...e, kg };
+    }
     setSession((s) => addSet(s, open, e, crypto.randomUUID(), new Date()));
   }
 
@@ -199,7 +231,7 @@ export function SessionScreen({ template, knownExercises }: { template: SessionT
                       <div key={s.id} className="grid grid-cols-[28px_minmax(0,1fr)_auto_36px] items-center gap-2.5 border-t border-sunk py-2">
                         <span className="text-sm font-extrabold text-muted">{s.setNumber}</span>
                         <span className="text-base font-bold tabular-nums">
-                          {KG.format(s.kg)} kg × {s.reps}
+                          {formatWeight(s.kg, unit)} × {s.reps}
                         </span>
                         <span className="flex items-center gap-1">
                           {records.has(s.id) && <span className="rounded-[10px] bg-amber-bg px-2 py-0.5 text-xs font-extrabold text-amber-title">Récord</span>}
@@ -213,19 +245,36 @@ export function SessionScreen({ template, knownExercises }: { template: SessionT
                       </div>
                     ))}
 
-                    <span className="text-[13px] text-muted">{exercise.last ? `La última vez (${DAY.format(new Date(`${exercise.last.day}T00:00:00Z`)).replaceAll(".", "")}): ${KG.format(exercise.last.kg)} kg × ${exercise.last.reps}` : "Primera vez que lo anotas"}</span>
+                    <span className="text-[13px] text-muted">{exercise.last ? `La última vez (${DAY.format(new Date(`${exercise.last.day}T00:00:00Z`)).replaceAll(".", "")}): ${formatWeight(exercise.last.kg, unit)} × ${exercise.last.reps}` : "Primera vez que lo anotas"}</span>
                     <div className="grid grid-cols-2 gap-2.5">
                       <div className="flex flex-col gap-1.5">
                         <span className="text-xs font-bold text-muted">Peso</span>
                         <div className="grid grid-cols-[44px_minmax(0,1fr)_44px] items-center gap-1">
-                          <button type="button" aria-label="Bajar 2,5 kg" disabled={effort.kg <= 0} onClick={() => setEffort((e) => ({ ...e, kg: Math.max(0, e.kg - KG_STEP) }))} className={step}>
+                          <button type="button" aria-label={unit === "lb" ? "Bajar 5 lb" : "Bajar 2,5 kg"} disabled={effort.kg <= 0} onClick={() => setEffort((e) => ({ ...e, kg: stepWeight(e.kg, -1, unit) }))} className={step}>
                             −
                           </button>
-                          <span className="text-center text-[22px] font-extrabold tabular-nums">
-                            {KG.format(effort.kg)}
-                            <span className="text-[13px] font-semibold text-muted"> kg</span>
-                          </span>
-                          <button type="button" aria-label="Subir 2,5 kg" onClick={() => setEffort((e) => ({ ...e, kg: e.kg + KG_STEP }))} className={step}>
+                          <label className="flex min-w-0 items-baseline justify-center gap-1">
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              enterKeyHint="done"
+                              autoComplete="off"
+                              aria-label={`Peso en ${unit}`}
+                              aria-invalid={weightError ? true : undefined}
+                              aria-describedby={weightError ? "weight-error" : undefined}
+                              value={draft ?? weightNumber(effort.kg, unit)}
+                              onFocus={(ev) => {
+                                setDraft(weightNumber(effort.kg, unit));
+                                ev.currentTarget.select();
+                              }}
+                              onChange={(ev) => setDraft(ev.target.value)}
+                              onBlur={() => commitDraft()}
+                              onKeyDown={(ev) => ev.key === "Enter" && ev.currentTarget.blur()}
+                              className="w-[5.5ch] min-w-0 rounded-lg bg-transparent text-right text-[22px] font-extrabold tabular-nums outline-primary focus:bg-sunk focus-visible:outline-2"
+                            />
+                            <span className="shrink-0 text-[13px] font-semibold text-muted">{unit}</span>
+                          </label>
+                          <button type="button" aria-label={unit === "lb" ? "Subir 5 lb" : "Subir 2,5 kg"} onClick={() => setEffort((e) => ({ ...e, kg: stepWeight(e.kg, 1, unit) }))} className={step}>
                             +
                           </button>
                         </div>
@@ -243,8 +292,13 @@ export function SessionScreen({ template, knownExercises }: { template: SessionT
                         </div>
                       </div>
                     </div>
+                    {weightError ? (
+                      <p id="weight-error" role="alert" className="text-sm font-semibold text-warn">
+                        {weightError}
+                      </p>
+                    ) : null}
                     <div className="grid grid-cols-[minmax(0,2fr)_minmax(0,1fr)] gap-2.5">
-                      <button type="button" onClick={() => log(effort)} className="h-14 rounded-2xl bg-primary text-base font-extrabold text-on-primary">
+                      <button type="button" onMouseDown={(ev) => ev.preventDefault()} onClick={() => log(effort)} className="h-14 rounded-2xl bg-primary text-base font-extrabold text-on-primary">
                         Guardar serie {sets.length + 1}
                       </button>
                       <button type="button" disabled={sets.length === 0} onClick={() => log(sets[sets.length - 1])} className="h-14 rounded-2xl border border-line text-sm font-bold disabled:opacity-50">

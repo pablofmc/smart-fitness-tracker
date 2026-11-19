@@ -1,15 +1,17 @@
 import Link from "next/link";
+import { readWeightUnit } from "@/lib/account/weight-unit";
+import { formatWeight, toUnit, weightNumber, type WeightUnit } from "@/lib/units";
 import { dailyBest1RM, strengthRecords, weeklyVolume } from "@/lib/metrics/strength";
 import { addDays } from "@/lib/sync/streams";
 import { GROUP_COLORS } from "@/modules/strength/format";
 import { GROUP_ORDER, type GroupName } from "@/modules/strength/sets";
 import { readLoggedSets } from "./read-sets";
 
-const KG = new Intl.NumberFormat("es", { maximumFractionDigits: 1 });
 const WHOLE = new Intl.NumberFormat("es", { maximumFractionDigits: 0, useGrouping: "always" });
 const SHORT = new Intl.DateTimeFormat("es", { day: "numeric", month: "short", timeZone: "UTC" });
 const short = (day: string) => SHORT.format(new Date(`${day}T00:00:00Z`)).replaceAll(".", "");
 const WEEKS = 8;
+const formatVolume = (kg: number, unit: WeightUnit) => `${WHOLE.format(toUnit(kg, unit))} ${unit}`;
 
 function mondayOf(day: string) {
   const weekday = new Date(`${day}T00:00:00Z`).getUTCDay();
@@ -21,7 +23,7 @@ function mondayOf(day: string) {
  * group, the estimated 1RM of one exercise, and records. Nothing here comes from the watch.
  */
 export async function LoggedStrengthTrends({ today, exercise, href }: { today: string; exercise?: string; href: (exercise: string) => string }) {
-  const { sets, labels } = await readLoggedSets();
+  const [{ sets, labels }, unit] = await Promise.all([readLoggedSets(), readWeightUnit()]);
   if (sets.length === 0) {
     return <p className="rounded-[20px] bg-card px-[18px] py-6 text-center text-[15px] leading-snug text-muted">Cuando anotes series en una sesión aparecen aquí tu volumen, tu 1RM estimado y tus récords.</p>;
   }
@@ -66,7 +68,7 @@ export async function LoggedStrengthTrends({ today, exercise, href }: { today: s
         </div>
         <div className="flex h-44 items-end gap-2 border-b border-field">
           {weeks.map(({ monday, week }) => (
-            <div key={monday} className="flex h-full flex-1 flex-col justify-end gap-px" title={week ? `${WHOLE.format(week.total)} kg` : "Sin datos"}>
+            <div key={monday} className="flex h-full flex-1 flex-col justify-end gap-px" title={week ? formatVolume(week.total, unit) : "Sin datos"}>
               {week ? (
                 GROUP_ORDER.filter((g) => week.byGroup[g])
                   .reverse()
@@ -92,7 +94,7 @@ export async function LoggedStrengthTrends({ today, exercise, href }: { today: s
             </span>
           ))}
         </div>
-        <span className="text-xs leading-snug text-muted">{thisWeek ? `Esta semana: ${WHOLE.format(thisWeek.total)} kg.` : "Esta semana todavía no anotas series."} Las semanas sin series anotadas no cuentan como cero.</span>
+        <span className="text-xs leading-snug text-muted">{thisWeek ? `Esta semana: ${formatVolume(thisWeek.total, unit)}.` : "Esta semana todavía no anotas series."} Las semanas sin series anotadas no cuentan como cero.</span>
       </section>
 
       {chosen && first && last && (
@@ -109,15 +111,15 @@ export async function LoggedStrengthTrends({ today, exercise, href }: { today: s
             ))}
           </div>
           <div className="flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold tabular-nums">{KG.format(last.value)} kg</span>
+            <span className="text-3xl font-extrabold tabular-nums">{formatWeight(last.value, unit)}</span>
             {series.length > 1 && (
               <span className="text-sm font-bold text-accent">
                 {last.value >= first.value ? "+" : "−"}
-                {KG.format(Math.abs(last.value - first.value))} kg desde el {short(first.day)}
+                {formatWeight(Math.abs(last.value - first.value), unit)} desde el {short(first.day)}
               </span>
             )}
           </div>
-          <div className="relative h-36" role="img" aria-label={`1RM estimado de ${labels.get(chosen)} por día: de ${KG.format(first.value)} a ${KG.format(last.value)} kg`}>
+          <div className="relative h-36" role="img" aria-label={`1RM estimado de ${labels.get(chosen)} por día: de ${weightNumber(first.value, unit)} a ${formatWeight(last.value, unit)}`}>
             <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden className="absolute inset-0 h-full w-full">
               {[0.25, 0.5, 0.75].map((f) => (
                 <line key={f} x1="0" x2={W} y1={H * f} y2={H * f} className="stroke-field" strokeWidth="1" vectorEffect="non-scaling-stroke" />
@@ -127,7 +129,7 @@ export async function LoggedStrengthTrends({ today, exercise, href }: { today: s
             {series.map((p, i) => (
               <span
                 key={p.day}
-                title={`${short(p.day)}: ${KG.format(p.value)} kg (${p.inputs})`}
+                title={`${short(p.day)}: ${formatWeight(p.value, unit)} (${p.inputs})`}
                 className={`absolute -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-card ${recordDays.has(p.day) ? "size-3.5 bg-warn-btn" : "size-2.5 bg-primary"}`}
                 style={{ left: `${(x(i) / W) * 100}%`, top: `${(y(p.value) / H) * 100}%` }}
               />
@@ -144,7 +146,12 @@ export async function LoggedStrengthTrends({ today, exercise, href }: { today: s
       )}
 
       <section className="flex flex-col gap-1 rounded-3xl bg-card p-[18px]">
-        <h2 className="mb-1.5 text-[17px] font-extrabold">Récords</h2>
+        <div className="mb-1.5 flex items-baseline justify-between">
+          <h2 className="text-[17px] font-extrabold">Récords</h2>
+          <Link href="/records" className="text-[13px] font-bold text-primary">
+            Ver todos
+          </Link>
+        </div>
         {recordList.length === 0 ? (
           <p className="text-sm text-muted">Todavía no hay récords: la primera vez que anotas un ejercicio queda como punto de partida.</p>
         ) : (
@@ -153,12 +160,12 @@ export async function LoggedStrengthTrends({ today, exercise, href }: { today: s
               <span className="flex flex-col gap-0.5">
                 <span className="text-[15px] font-bold">{labels.get(r.exercise)}</span>
                 <span className="text-xs text-muted">
-                  {r.kinds.includes("weight") && r.kinds.includes("1rm") ? "Récord de peso y de 1RM" : r.kinds.includes("weight") ? "Récord de peso" : "Récord de 1RM"} el {short(r.day)} · {KG.format(r.kg)} kg × {r.reps}
+                  {r.kinds.includes("weight") && r.kinds.includes("1rm") ? "Récord de peso y de 1RM" : r.kinds.includes("weight") ? "Récord de peso" : "Récord de 1RM"} el {short(r.day)} · {formatWeight(r.kg, unit)} × {r.reps}
                 </span>
               </span>
               <span className="flex flex-col items-end gap-0.5 tabular-nums">
-                <span className="text-[15px] font-extrabold">{KG.format(r.kg)} kg</span>
-                {r.e1rm !== null && <span className="text-xs text-muted">1RM {KG.format(r.e1rm)} kg</span>}
+                <span className="text-[15px] font-extrabold">{formatWeight(r.kg, unit)}</span>
+                {r.e1rm !== null && <span className="text-xs text-muted">1RM {formatWeight(r.e1rm, unit)}</span>}
               </span>
             </div>
           ))

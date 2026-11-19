@@ -27,7 +27,7 @@ Smart Fitness Tracker: a personal web app that pulls my own Garmin data (Persona
 | R-DAT-02 | MUST | Everything can be re-parsed from the raw data. | A reprocess job rebuilds all parsed tables from raw files with the same result. |
 | R-DAT-03 | MUST | Store all health data the Personal tier exposes (sleep, HRV, resting HR, Body Battery, stress, steps, respiration, SpO2 and others), not only what the dashboard shows. | Every field the API returns is queryable, even if no screen uses it. |
 | R-DAT-04 | MUST | Each record belongs to a calendar day in the time zone where the watch recorded it, so travel doesn't break days. | A run at 23:00 local time while abroad counts for that local day. |
-| R-DAT-05 | MUST | Metric units: km, kg, min/km for running, km/h for cycling. | No imperial units anywhere. |
+| R-DAT-05 | MUST | Metric units: km, kg, min/km for running, km/h for cycling. Each person may choose lb for weights in Ajustes (#66); weights are still stored in kg. | Distances and paces are never imperial; switching kg ↔ lb never changes stored data. |
 | R-DAT-06 | LATER | Export all my data (raw + parsed) as a zip or CSV. | — |
 
 ## Activities (ACT)

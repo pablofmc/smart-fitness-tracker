@@ -5,7 +5,7 @@ description: The formulas behind every number Smart Fitness Tracker computes —
 
 # Fitness metrics
 
-This file is the single source of truth for the formulas. If code and this file disagree, ask me before changing either. Units are metric (R-DAT-05); every daily value belongs to the local calendar day where the watch recorded it (R-DAT-04).
+This file is the single source of truth for the formulas. If code and this file disagree, ask me before changing either. Units are metric (R-DAT-05): formulas take and return kg, even when a person shows weights in lb (`src/lib/units.ts`); every daily value belongs to the local calendar day where the watch recorded it (R-DAT-04).
 
 ## Rules for every metric
 
@@ -49,6 +49,8 @@ Only from the sets I log (R-STR-08); Garmin has no weights for this user's sessi
 - **Volume** = kg × reps per set, summed per exercise, per muscle group and per week (Monday). A set without weight adds 0. A week with no logged sets has no volume, never zero.
 - **Estimated 1RM**, Epley: 1RM = weight × (1 + reps / 30), only for sets with weight > 0 and 1–10 reps. A 1-rep set gives its own weight. The day's 1RM for an exercise is the one from its best set.
 - **Records:** a set is a record when its weight, or its estimated 1RM, beats every earlier set of that exercise. Convention: the first set ever logged of an exercise only sets the baseline and is not marked.
+- **Records board:** per exercise with weight, the heaviest set (a weight tie goes to more reps, then the earlier set) and the set with the best estimated 1RM.
+- **Load calculator:** target = pct % of the estimated 1RM or of the heaviest weight, rounded to the nearest 2.5 kg and never below the 20 kg bar. Plates per side are taken greedily from 25, 20, 15, 10, 5, 2.5 and 1.25 kg. The reps at the target are Epley backwards, ⌊30 × (1RM / target − 1)⌋, at least 1; a guide, shown as "más de 10" beyond Epley's range. In lb the calculator works in lb: 45 lb bar, 5 lb steps, plates of 45, 35, 25, 10, 5 and 2.5 lb.
 
 ## Personal baseline (R-HLT-02)
 

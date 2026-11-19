@@ -97,3 +97,110 @@ export function beatsBest(set: Pick<StrengthSet, "kg" | "reps">, prior: { kg: nu
   if (e.available && e.value > prior.e1rm) kinds.push("1rm");
   return kinds;
 }
+
+/** One set as a record: its weight, reps and when. */
+export type BestSet = { kg: number; reps: number; day: string; at: string };
+
+/** One exercise on the records board (R-STR-03). */
+export type BoardRow = {
+  exercise: string;
+  group: string;
+  /** The heaviest set; on a tie, the one with more reps, then the earlier one. */
+  heaviest: BestSet;
+  /** The set with the best estimated 1RM, or null when no set has 1–10 reps. */
+  best1rm: (BestSet & { value: number }) | null;
+  /** Days with at least one set with weight. */
+  sessions: number;
+  firstDay: string;
+  /** The later of the two bests' days. */
+  bestDay: string;
+};
+
+const chrono = (a: BestSet, b: BestSet) => a.day.localeCompare(b.day) || a.at.localeCompare(b.at);
+
+/** The records board: each exercise with logged weight once, with its heaviest set and best estimated 1RM. */
+export function recordBoard(sets: StrengthSet[]): BoardRow[] {
+  const rows = new Map<string, BoardRow & { days: Set<string> }>();
+  for (const s of [...sets].filter((x) => x.kg > 0).sort(chrono)) {
+    const e = epley(s.kg, s.reps);
+    const one = { kg: s.kg, reps: s.reps, day: s.day, at: s.at };
+    const row = rows.get(s.exercise);
+    if (!row) {
+      rows.set(s.exercise, { exercise: s.exercise, group: s.group, heaviest: one, best1rm: e.available ? { ...one, value: e.value } : null, sessions: 0, firstDay: s.day, bestDay: s.day, days: new Set([s.day]) });
+      continue;
+    }
+    row.days.add(s.day);
+    if (s.kg > row.heaviest.kg || (s.kg === row.heaviest.kg && s.reps > row.heaviest.reps)) row.heaviest = one;
+    if (e.available && e.value > (row.best1rm?.value ?? 0)) row.best1rm = { ...one, value: e.value };
+  }
+  return [...rows.values()].map(({ days, ...row }) => {
+    const bestDay = row.best1rm && row.best1rm.day > row.heaviest.day ? row.best1rm.day : row.heaviest.day;
+    return { ...row, sessions: days.size, bestDay };
+  });
+}
+
+/** Per day of one exercise: the heaviest set and the best estimated 1RM (null when no set has 1–10 reps). */
+export function sessionBests(sets: StrengthSet[], exercise: string): { day: string; kg: number; reps: number; e1rm: number | null }[] {
+  const days = new Map<string, { kg: number; reps: number; e1rm: number | null }>();
+  for (const s of sets) {
+    if (s.exercise !== exercise || !(s.kg > 0)) continue;
+    const e = epley(s.kg, s.reps);
+    const d = days.get(s.day);
+    if (!d) {
+      days.set(s.day, { kg: s.kg, reps: s.reps, e1rm: e.available ? e.value : null });
+      continue;
+    }
+    if (s.kg > d.kg || (s.kg === d.kg && s.reps > d.reps)) Object.assign(d, { kg: s.kg, reps: s.reps });
+    if (e.available && e.value > (d.e1rm ?? 0)) d.e1rm = e.value;
+  }
+  return [...days.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([day, d]) => ({ day, ...d }));
+}
+
+/** The heaviest set with at least each number of reps; null when no set reached it. */
+export function bestByReps(sets: StrengthSet[], exercise: string, targets: number[] = [1, 3, 5, 8, 10]): { reps: number; kg: number | null }[] {
+  const mine = sets.filter((s) => s.exercise === exercise && s.kg > 0);
+  return targets.map((reps) => {
+    const ok = mine.filter((s) => s.reps >= reps).map((s) => s.kg);
+    return { reps, kg: ok.length ? Math.max(...ok) : null };
+  });
+}
+
+/** How the heaviest weight grew: the first set, then every set heavier than all before it, oldest first. */
+export function weightProgression(sets: StrengthSet[], exercise: string): (BestSet & { delta: number | null })[] {
+  const out: (BestSet & { delta: number | null })[] = [];
+  for (const s of sets.filter((x) => x.exercise === exercise && x.kg > 0).sort(chrono)) {
+    const prior = out.at(-1);
+    if (!prior || s.kg > prior.kg) out.push({ kg: s.kg, reps: s.reps, day: s.day, at: s.at, delta: prior ? s.kg - prior.kg : null });
+  }
+  return out;
+}
+
+// Training-load calculator (#64): a percentage of a record, as weight on a bar. Values are in the unit
+// shown (#66); the spec gives that unit's bar, rounding step and plates.
+export type LoadSpec = { bar: number; step: number; plates: readonly number[] };
+export const KG_LOAD: LoadSpec = { bar: 20, step: 2.5, plates: [25, 20, 15, 10, 5, 2.5, 1.25] };
+
+/** pct % of base, rounded to the nearest step (2.5 kg: the smallest jump with 1.25 kg plates), never below the bar. */
+export function percentLoad(base: number, pct: number, spec: LoadSpec = KG_LOAD): { exact: number; target: number } {
+  const exact = (base * pct) / 100;
+  return { exact: round1(exact), target: Math.max(spec.bar, Math.round(exact / spec.step) * spec.step) };
+}
+
+/** Plates on each side of the bar for a total weight, heaviest first. Whatever doesn't fit the smallest plate is left off. */
+export function platesPerSide(total: number, spec: LoadSpec = KG_LOAD): number[] {
+  let side = (total - spec.bar) / 2;
+  const out: number[] = [];
+  for (const p of spec.plates) {
+    while (side >= p - 1e-9) {
+      out.push(p);
+      side -= p;
+    }
+  }
+  return out;
+}
+
+/** Epley backwards: the reps you could do at kg with this estimated 1RM, 30 × (1RM / kg − 1), at least 1. */
+export function repsAt(kg: number, e1rm: number): number {
+  if (kg >= e1rm) return 1;
+  return Math.max(1, Math.floor(30 * (e1rm / kg - 1) + 1e-9));
+}

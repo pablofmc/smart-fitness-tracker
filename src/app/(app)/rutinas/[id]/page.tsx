@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { readWeightUnit } from "@/lib/account/weight-unit";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -28,7 +29,7 @@ export default async function EditarRutinaPage({ params }: { params: Promise<{ i
   return (
     <div className="flex flex-col gap-4">
       <BackHeader title="Editar rutina" />
-      <RoutineForm initial={{ id: routine.id, name: routine.name, fileUrl, fileType: routine.file_type, exercises }} />
+      <RoutineForm unit={await readWeightUnit()} initial={{ id: routine.id, name: routine.name, fileUrl, fileType: routine.file_type, exercises }} />
       <RoutineHistory routineId={routine.id} />
     </div>
   );

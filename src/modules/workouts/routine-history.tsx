@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { readWeightUnit } from "@/lib/account/weight-unit";
 import { strengthRecords } from "@/lib/metrics/strength";
 import { createClient } from "@/lib/supabase/server";
 import { lineText, sessionLines } from "./history";
@@ -11,6 +12,7 @@ const SHOWN = 20;
 /** Every session done with a routine, newest first, with the weight of each exercise (R-STR-08). */
 export async function RoutineHistory({ routineId }: { routineId: number }) {
   const db = await createClient();
+  const unit = await readWeightUnit();
   const [{ data: sessions, count }, { sets }] = await Promise.all([
     db
       .from("logged_sessions")
@@ -57,7 +59,7 @@ export async function RoutineHistory({ routineId }: { routineId: number }) {
                     <span className="truncate text-sm font-bold">{l.label}</span>
                     {l.record && <span className="shrink-0 rounded-[9px] bg-amber-bg px-2 py-0.5 text-[11px] font-extrabold text-amber-title">Récord</span>}
                   </span>
-                  <span className="text-sm tabular-nums">{lineText(l)}</span>
+                  <span className="text-sm tabular-nums">{lineText(l, unit)}</span>
                 </div>
               ))}
               {s.activity_id && (

@@ -9,7 +9,7 @@ const checkin = z.object({
   day: z.iso.date(),
   feel: z.number().int().min(1).max(5).nullable(),
   tags: z.array(z.string().min(1).max(40)).max(20),
-  weightKg: z.number().min(20).max(300).nullable(),
+  weightKg: z.number().min(20).max(300).transform((kg) => Math.round(kg * 1000) / 1000).nullable(),
   note: z.string().max(500).nullable(),
 });
 

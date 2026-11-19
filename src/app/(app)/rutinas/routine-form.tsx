@@ -4,6 +4,7 @@ import Link from "next/link";
 import { startTransition, useActionState, useEffect, useState } from "react";
 import { ROUTINE_SHRINK, shrinkPhoto } from "@/modules/gear/shrink-photo";
 import { matchExercise, ROUTINE_EXERCISES, ROUTINE_FILE_MAX_BYTES, type RoutineExercise } from "@/modules/routines/routine";
+import { fromUnit, weightNumber, type WeightUnit } from "@/lib/units";
 import { deleteRoutine, readRoutine, saveRoutine, type SaveState } from "./actions";
 
 type Row = { key: number; name: string; category: string | null; sets: string; reps: string; kg: string };
@@ -11,18 +12,23 @@ type Chosen = { blob: Blob; name: string; type: string; preview: string | null; 
 export type InitialRoutine = { id: number; name: string; fileUrl: string | null; fileType: string | null; exercises: RoutineExercise[] };
 
 let nextKey = 1;
-const toRow = (e: RoutineExercise): Row => ({
+const toRow = (e: RoutineExercise, unit: WeightUnit): Row => ({
   key: nextKey++,
   name: e.name,
   category: e.category,
   sets: e.targetSets?.toString() ?? "",
   reps: e.targetReps ?? "",
-  kg: e.targetKg?.toString().replace(".", ",") ?? "",
+  kg: e.targetKg === null ? "" : weightNumber(e.targetKg, unit).replace(/\./g, ""),
 });
 const emptyRow = (): Row => ({ key: nextKey++, name: "", category: null, sets: "", reps: "", kg: "" });
 const numberOrNull = (text: string, integer = false) => {
   const n = Number(text.replace(",", ".").trim());
   return text.trim() === "" || !Number.isFinite(n) ? null : integer ? Math.round(n) : n;
+};
+/** The target weight typed in the person's unit, stored in kg (#66). */
+const kgOrNull = (text: string, unit: WeightUnit) => {
+  const n = numberOrNull(text);
+  return n === null ? null : fromUnit(n, unit);
 };
 const KB = (bytes: number) => (bytes > 1024 * 1024 ? `${(bytes / 1024 / 1024).toFixed(1).replace(".", ",")} MB` : `${Math.round(bytes / 1024)} KB`);
 
@@ -30,11 +36,11 @@ const field = "h-12 w-full rounded-xl border border-line bg-card px-3 text-base 
 const small = "h-11 w-full rounded-[10px] border border-line bg-card px-1 text-center text-[15px] font-semibold outline-primary focus-visible:outline-2";
 
 /** New or edited routine: file, optional AI read, then the exercise list to review (canvas: C2-Rutina-Nueva). */
-export function RoutineForm({ initial, aiCapMessage = null }: { initial?: InitialRoutine; aiCapMessage?: string | null }) {
+export function RoutineForm({ initial, aiCapMessage = null, unit }: { initial?: InitialRoutine; aiCapMessage?: string | null; unit: WeightUnit }) {
   const [state, dispatch, saving] = useActionState<SaveState, FormData>(saveRoutine, {});
   const [name, setName] = useState(initial?.name ?? "");
   const [chosen, setChosen] = useState<Chosen | null>(null);
-  const [rows, setRows] = useState<Row[]>(() => initial?.exercises.map(toRow) ?? []);
+  const [rows, setRows] = useState<Row[]>(() => initial?.exercises.map((e) => toRow(e, unit)) ?? []);
   const [step, setStep] = useState<"pick" | "reading" | "list">(initial ? "list" : "pick");
   const [notice, setNotice] = useState<{ text: string; tone: "ok" | "warn" } | null>(null);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -75,7 +81,7 @@ export function RoutineForm({ initial, aiCapMessage = null }: { initial?: Initia
     setNotice(null);
     const result = await readRoutine(fileData());
     if (result.exercises) {
-      setRows(result.exercises.map(toRow));
+      setRows(result.exercises.map((e) => toRow(e, unit)));
       setNotice({ text: `La IA encontró ${result.exercises.length} ${result.exercises.length === 1 ? "ejercicio" : "ejercicios"}. Revísalos: puede equivocarse con nombres o números.`, tone: "ok" });
     } else {
       setRows((r) => (r.length ? r : [emptyRow()]));
@@ -95,7 +101,7 @@ export function RoutineForm({ initial, aiCapMessage = null }: { initial?: Initia
     data.set("name", name);
     const exercises: RoutineExercise[] = rows
       .filter((r) => r.name.trim())
-      .map((r) => ({ name: r.name.trim(), category: r.category, targetSets: numberOrNull(r.sets, true), targetReps: r.reps.trim() || null, targetKg: numberOrNull(r.kg) }));
+      .map((r) => ({ name: r.name.trim(), category: r.category, targetSets: numberOrNull(r.sets, true), targetReps: r.reps.trim() || null, targetKg: kgOrNull(r.kg, unit) }));
     data.set("exercises", JSON.stringify(exercises));
     startTransition(() => dispatch(data));
   }
@@ -200,7 +206,7 @@ export function RoutineForm({ initial, aiCapMessage = null }: { initial?: Initia
             <span>Ejercicio</span>
             <span className="text-center">Series</span>
             <span className="text-center">Reps</span>
-            <span className="text-center">kg</span>
+            <span className="text-center">{unit}</span>
             <span />
           </div>
           <datalist id="routine-exercises">
@@ -213,7 +219,7 @@ export function RoutineForm({ initial, aiCapMessage = null }: { initial?: Initia
               <input aria-label={`Ejercicio ${i + 1}`} list="routine-exercises" value={r.name} onChange={(e) => update(r.key, { name: e.target.value })} maxLength={80} placeholder="Ejercicio" className={`${small} px-2.5 text-left`} />
               <input aria-label={`Series de ${r.name || `ejercicio ${i + 1}`}`} value={r.sets} onChange={(e) => update(r.key, { sets: e.target.value })} inputMode="numeric" className={small} />
               <input aria-label={`Repeticiones de ${r.name || `ejercicio ${i + 1}`}`} value={r.reps} onChange={(e) => update(r.key, { reps: e.target.value })} maxLength={20} className={small} />
-              <input aria-label={`Kg de ${r.name || `ejercicio ${i + 1}`}`} value={r.kg} onChange={(e) => update(r.key, { kg: e.target.value })} inputMode="decimal" placeholder="—" className={small} />
+              <input aria-label={`${unit} de ${r.name || `ejercicio ${i + 1}`}`} value={r.kg} onChange={(e) => update(r.key, { kg: e.target.value })} inputMode="decimal" placeholder="—" className={small} />
               <button type="button" aria-label={`Quitar ${r.name || `ejercicio ${i + 1}`}`} onClick={() => setRows((all) => all.filter((x) => x.key !== r.key))} className="flex h-11 w-9 items-center justify-center text-muted">
                 <svg viewBox="0 0 24 24" aria-hidden className="size-[18px] fill-none stroke-current" strokeWidth={2} strokeLinecap="round">
                   <path d="M6 6l12 12M18 6L6 18" />
@@ -224,7 +230,7 @@ export function RoutineForm({ initial, aiCapMessage = null }: { initial?: Initia
           <button type="button" onClick={() => setRows((all) => [...all, emptyRow()])} className="h-11 rounded-[14px] border border-dashed border-line text-sm font-bold">
             + Ejercicio
           </button>
-          <span className="text-xs text-muted">Series, reps y kg son opcionales: son la meta, no lo que hiciste.</span>
+          <span className="text-xs text-muted">Series, reps y peso son opcionales: son la meta, no lo que hiciste.</span>
           {!initial && chosen && !notice && !aiCapMessage && (
             <button type="button" onClick={readWithAi} className="self-start text-[13px] font-bold text-accent">
               Leer con IA en vez de escribir

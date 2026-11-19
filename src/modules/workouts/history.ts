@@ -1,3 +1,4 @@
+import { formatWeight, weightNumber, type WeightUnit } from "@/lib/units";
 /** One logged set as the routine history reads it. */
 export type HistorySet = { id: string; exercise: string; label: string; position: number; kg: number; reps: number };
 
@@ -26,11 +27,10 @@ export function sessionLines(sets: HistorySet[], recordSetIds: ReadonlySet<strin
     .map((l) => ({ exercise: l.exercise, label: l.label, sets: l.sets, reps: l.reps, sameReps: l.repsSeen.size === 1 ? [...l.repsSeen][0] : null, minKg: l.minKg, maxKg: l.maxKg, record: l.record }));
 }
 
-const KG = new Intl.NumberFormat("es", { maximumFractionDigits: 1 });
 
 /** "4 × 8 · 60–62,5 kg", "3 series · 26 reps · 20 kg", "3 × 12 · sin peso". */
-export function lineText(l: Pick<ExerciseLine, "sets" | "reps" | "sameReps" | "minKg" | "maxKg">) {
+export function lineText(l: Pick<ExerciseLine, "sets" | "reps" | "sameReps" | "minKg" | "maxKg">, unit: WeightUnit = "kg") {
   const count = l.sameReps !== null ? `${l.sets} × ${l.sameReps}` : `${l.sets} series · ${l.reps} reps`;
-  const kg = l.maxKg <= 0 ? "sin peso" : l.minKg === l.maxKg ? `${KG.format(l.minKg)} kg` : `${KG.format(l.minKg)}–${KG.format(l.maxKg)} kg`;
+  const kg = l.maxKg <= 0 ? "sin peso" : l.minKg === l.maxKg ? formatWeight(l.minKg, unit) : `${weightNumber(l.minKg, unit)}–${formatWeight(l.maxKg, unit)}`;
   return `${count} · ${kg}`;
 }

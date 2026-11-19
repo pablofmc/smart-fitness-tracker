@@ -46,6 +46,7 @@ begin
     update public.shoes set is_default = false where user_id = who;
     insert into public.shoes (user_id, brand, model, run_types, started_on, is_default) values (who, 'Test', 'Shoe', array['daily'], '2026-11-01', true);
     insert into public.routines (user_id, name) values (who, 'Test routine');
+    insert into public.user_settings (user_id, weight_unit) values (who, 'lb') on conflict (user_id) do update set weight_unit = 'lb';
     insert into public.logged_sessions (user_id, id, name, local_day, started_at)
     values (who, case when who = me then '00000000-0000-4000-8000-00000000000a'::uuid else '00000000-0000-4000-8000-00000000000b'::uuid end, 'x', '2026-11-09', now());
   end loop;
