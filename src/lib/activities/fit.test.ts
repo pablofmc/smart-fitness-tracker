@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { chartSeries, lapRows, missingCharts, RUN_CHARTS, type FitRecord } from "./fit";
+import { chartSeries, lapRows, missingCharts, paceThirds, routeOf, RUN_CHARTS, type FitRecord } from "./fit";
 
 const at = (seconds: number) => new Date(Date.UTC(2026, 0, 1) + seconds * 1000);
 
@@ -50,5 +50,41 @@ describe("lapRows", () => {
       { distance_m: 1000, time_s: 300, speed: 3.33, hr: 150, cadence: 172 },
     ]);
     expect(lapRows([{}])).toEqual([{ distance_m: null, time_s: null, speed: null, hr: null, cadence: null }]);
+  });
+});
+
+describe("routeOf", () => {
+  const semi = (deg: number) => Math.round(deg / (180 / 2 ** 31));
+
+  it("converts semicircles to degrees and skips records without a fix", () => {
+    const route = routeOf([
+      { positionLat: 0, positionLong: 0 },
+      { enhancedSpeed: 3 },
+      { positionLat: semi(9.93), positionLong: semi(-84.08), enhancedSpeed: 3 },
+      { positionLat: semi(9.94), positionLong: semi(-84.07) },
+    ]);
+    expect(route).toHaveLength(2);
+    expect(route![0].lat).toBeCloseTo(9.93, 6);
+    expect(route![0].lon).toBeCloseTo(-84.08, 6);
+    expect(route!.map((p) => p.speed)).toEqual([3, null]);
+  });
+
+  it("is null without GPS, as on a treadmill", () => {
+    expect(routeOf([{ enhancedSpeed: 3 }, { enhancedSpeed: 3.1 }])).toBeNull();
+  });
+
+  it("thins long routes but keeps the last point", () => {
+    const records = Array.from({ length: 1001 }, (_, i) => ({ positionLat: semi(10 + i / 1e4), positionLong: semi(-84) }));
+    const route = routeOf(records, 100)!;
+    expect(route.length).toBeLessThanOrEqual(102);
+    expect(route[route.length - 1].lat).toBeCloseTo(10.1, 6);
+  });
+});
+
+describe("paceThirds", () => {
+  it("marks the fastest third 0 and the slowest 2", () => {
+    const route = [1, 2, 3, 4, 5, 6].map((speed) => ({ lat: 0, lon: 0, speed }));
+    expect(paceThirds(route)).toEqual([2, 2, 1, 1, 0, 0]);
+    expect(paceThirds([{ lat: 0, lon: 0, speed: null }])).toEqual([null]);
   });
 });

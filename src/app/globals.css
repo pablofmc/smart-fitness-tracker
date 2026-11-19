@@ -16,6 +16,10 @@
   --line: #c9d2d0;
   --primary: #0f766e;
   --on-primary: #ffffff;
+  /* Route map by pace: fast blue, middle grey, slow orange (told apart by lightness too). */
+  --pace-fast: #2563eb;
+  --pace-mid: #94a3b8;
+  --pace-slow: #ea580c;
   --accent: #0b5a54;
   --nav: #ffffff;
   --nav-line: #e3e7e6;
@@ -49,6 +53,9 @@
     --line: #3a4744;
     --primary: #2dd4bf;
     --on-primary: #042f2c;
+    --pace-fast: #60a5fa;
+    --pace-mid: #c9d6d3;
+    --pace-slow: #fb923c;
     --accent: #5eead4;
     --nav: #121b19;
     --nav-line: #1f2a27;
@@ -82,6 +89,9 @@
   --line: #3a4744;
   --primary: #2dd4bf;
   --on-primary: #042f2c;
+  --pace-fast: #60a5fa;
+  --pace-mid: #c9d6d3;
+  --pace-slow: #fb923c;
   --accent: #5eead4;
   --nav: #121b19;
   --nav-line: #1f2a27;
