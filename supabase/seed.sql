@@ -44,3 +44,11 @@ values (
 -- The sync route on the dev server, as seen from the database container. SYNC_SECRET in .env.local must match.
 select vault.create_secret('http://host.docker.internal:3100/api/sync', 'sync_url');
 select vault.create_secret('local-dev-sync-secret', 'sync_secret');
+
+-- Migrations run before this seed, so the tag migrations found no accounts: give both local people the
+-- five predefined check-in tags, as scripts/create-account.mjs does in production.
+insert into public.checkin_tags (user_id, name)
+select u.id, t.name
+from auth.users u
+cross join (values ('Alcohol'), ('Café tarde'), ('Enfermo'), ('Viaje'), ('Estrés trabajo')) as t (name)
+on conflict do nothing;

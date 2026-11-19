@@ -40,6 +40,11 @@ if (error) {
   process.exit(1);
 }
 
+// The predefined check-in tags, the same five every account starts with.
+const tags = ["Alcohol", "Café tarde", "Enfermo", "Viaje", "Estrés trabajo"].map((name) => ({ user_id: data.user.id, name }));
+const { error: tagError } = await admin.from("checkin_tags").upsert(tags);
+if (tagError) console.error(`La cuenta existe, pero no se pudieron crear sus etiquetas: ${tagError.message}`);
+
 console.log(`Cuenta creada para ${data.user.email} en ${new URL(url).host}.`);
 console.log(`Contraseña temporal: ${password}`);
 console.log("Dásela en persona. Al entrar, la app le pide elegir una suya.");

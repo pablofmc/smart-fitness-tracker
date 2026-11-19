@@ -65,3 +65,54 @@ export function correlate(x: DayValue[], y: DayValue[], lag: number): Correlatio
   if (rho === null) return { enough: false, n: pairs.length, reason: "datos insuficientes" };
   return { enough: true, rho, n: pairs.length, strength: strengthOf(rho) };
 }
+
+/** Minimum days in each group, with and without the tag (R-COR-04, fitness-metrics skill). */
+export const MIN_TAG_GROUP_DAYS = 10;
+
+export function effectOf(d: number): Strength {
+  const a = Math.abs(d);
+  return a < 0.2 ? "muy débil" : a < 0.5 ? "débil" : a < 0.8 ? "moderada" : "fuerte";
+}
+
+const mean = (v: number[]) => v.reduce((s, x) => s + x, 0) / v.length;
+const sumSq = (v: number[], m: number) => v.reduce((s, x) => s + (x - m) ** 2, 0);
+
+/** Cohen's d with the pooled standard deviation. Null when neither group varies. */
+export function cohensD(a: number[], b: number[]) {
+  if (a.length < 2 || b.length < 2) return null;
+  const ma = mean(a);
+  const mb = mean(b);
+  const pooled = Math.sqrt((sumSq(a, ma) + sumSq(b, mb)) / (a.length + b.length - 2));
+  return pooled === 0 ? null : (ma - mb) / pooled;
+}
+
+export type TagComparison = {
+  /** Y on days after a check-in with the tag, and after one without it. */
+  withTag: number[];
+  withoutTag: number[];
+} & (
+  | { enough: true; n: number; meanWith: number; meanWithout: number; diff: number; d: number; strength: Strength }
+  | { enough: false; n: number; reason: "datos insuficientes" }
+);
+
+/**
+ * A tag against a numeric metric (R-COR-04): Y on day d + lag, split by whether day d's check-in had the
+ * tag. Only days with a check-in count, since a day without one says nothing about the tag. Below 30
+ * paired days, or 10 in either group, the answer is "datos insuficientes".
+ */
+export function compareTag(checkins: { day: string; tags: string[] }[], tag: string, y: DayValue[], lag: number): TagComparison {
+  const ys = new Map(y.map((d) => [d.day, d.value]));
+  const withTag: number[] = [];
+  const withoutTag: number[] = [];
+  for (const c of checkins) {
+    const value = ys.get(addDays(c.day, lag));
+    if (value === undefined) continue;
+    (c.tags.includes(tag) ? withTag : withoutTag).push(value);
+  }
+  const n = withTag.length + withoutTag.length;
+  const d = n >= MIN_PAIRED_DAYS && withTag.length >= MIN_TAG_GROUP_DAYS && withoutTag.length >= MIN_TAG_GROUP_DAYS ? cohensD(withTag, withoutTag) : null;
+  if (d === null) return { withTag, withoutTag, enough: false, n, reason: "datos insuficientes" };
+  const meanWith = mean(withTag);
+  const meanWithout = mean(withoutTag);
+  return { withTag, withoutTag, enough: true, n, meanWith, meanWithout, diff: meanWith - meanWithout, d, strength: effectOf(d) };
+}
